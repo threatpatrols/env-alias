@@ -181,7 +181,7 @@ class EnvAliasSource:
         ansible_vault_password_script = textwrap.dedent(
             f"""
             #!/bin/sh
-            echo "${'{' + envvar_name + '}'}"
+            echo "${"{" + envvar_name + "}"}"
         """
         ).strip()
 

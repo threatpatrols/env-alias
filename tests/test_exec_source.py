@@ -98,9 +98,7 @@ def test_sample_exec_env_to_exec_01(capsys):
         TEST_VALUE:
             exec: >
                 echo "> ${{RANDOM_VALUE}} <"
-    """.format(
-        test_value=test_value
-    )
+    """.format(test_value=test_value)
 
     config_file = __generate_config_file(yaml)
     EnvAliasGenerator(config_file=config_file).generate()
