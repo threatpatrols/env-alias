@@ -21,6 +21,9 @@ version = "0.5.3"
 readme = "README.md"
 keywords = ["env-alias", "shell", "env", "alias", "bash"]
 
+[project.scripts]
+env-alias = "env_alias.main:entrypoint"
+
 [project.urls]
 Documentation = "https://threatpatrols.github.io/env-alias/"
 Homepage = "https://github.com/threatpatrols/env-alias"
