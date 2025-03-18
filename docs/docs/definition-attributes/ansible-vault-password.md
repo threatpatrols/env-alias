@@ -40,7 +40,7 @@ This special helper makes working with Ansible Vault files considerably easier a
 required (executable) Ansible Vault Password File.
 
 The helper also generates "hard-to-guess" filenames and environment values that are derived from multiple sha256 
-rounds of the password with salt added. See the [docs](/definition-attributes/ansible_vault_password_file) for more 
+rounds of the password with salt added. See the [docs](ansible-vault-password-file.md) for more 
 details on this mechanism.
 
 ```yaml

@@ -1,5 +1,6 @@
-
 # AWS Credentials
+
+## Example
 
 An easy example to get AWS credentials loaded in as environment variables from a non-default AWS 
 credentials file location.

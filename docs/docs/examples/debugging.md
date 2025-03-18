@@ -1,5 +1,7 @@
 # Debugging
 
+## Example
+
 Debug output can be easily added to STDERR by adding an optional `--debug` argument to the 
 `env-alias` command as shown below
 
