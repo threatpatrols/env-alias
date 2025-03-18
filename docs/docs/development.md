@@ -2,8 +2,8 @@
 
 <img src="https://github.com/NiklasRosenstein/slap/raw/develop/.github/assets/logo.svg" style="height: 120px; float: right; margin-left: 24px; margin-bottom: 24px">
 
-This project uses the very awesome [slap-cli](https://niklasrosenstein.github.io/slap/) utility to help with 
-development, testing, packaging and release management.  Plays nice with the fancy new UV tooling too. 
+This project uses the very awesome **[slap-cli](https://niklasrosenstein.github.io/slap/)** utility to help with 
+development, testing, packaging and release management.  Slap-cli works well with the fancy-and-fast UV tooling too. 
 
 ## slap-cli
 ```shell
