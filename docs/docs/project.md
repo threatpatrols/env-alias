@@ -3,7 +3,6 @@
 [![PyPi](https://img.shields.io/pypi/v/env-alias.svg)](https://pypi.python.org/pypi/env-alias/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/env-alias.svg)](https://github.com/threatpatrols/env-alias/)
 [![Build Status](https://github.com/threatpatrols/env-alias/actions/workflows/build-tests.yml/badge.svg)](https://github.com/threatpatrols/env-alias/actions/workflows/build-tests.yml)
-[![Docs](https://img.shields.io/readthedocs/env-alias)](https://threatpatrols.github.io/env-alias)
 ![License](https://img.shields.io/github/license/threatpatrols/env-alias.svg)
 
 
