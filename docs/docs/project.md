@@ -12,7 +12,7 @@
 * PyPI - [pypi.python.org/pypi/env-alias](https://pypi.python.org/pypi/env-alias/)
 * Github - [github.com/threatpatrols/env-alias](https://github.com/threatpatrols/env-alias)
 
-NB: The repo was migrated from `github.com/ndejong/env-alias` to `github.com/threatpatrols/env-alias` in March 2025.
+This project was migrated from `github.com/ndejong/env-alias` to `github.com/threatpatrols/env-alias` in March 2025.
 
 
 ## Features / Bugs 
