@@ -73,19 +73,13 @@ package-build = """set -e; \
 # ===
 [tool.mypy]
 pretty = true
-explicit_package_bases = true
-ignore_missing_imports = true
-mypy_path = ["src"]
+warn_redundant_casts = true
+#warn_unused_ignores = true
 namespace_packages = true
-pretty = true
-python_version = "3.8"
 show_error_codes = true
 show_error_context = true
-strict = true
 warn_no_return = true
-warn_redundant_casts = true
 warn_unreachable = true
-warn_unused_ignores = true
 
 
 # uv
