@@ -66,7 +66,7 @@ def usage_help(exit_code: Union[int, None] = None) -> None:
     print(f"{__title__} v{__version__}")
     print()
     print("Usage: env-alias [<alias>] [--debug] <definitions.[yml|yaml]>")
-    print("Docs: https://env-alias.readthedocs.io")
+    print("Docs: https://threatpatrols.github.io/env-alias/")
     print()
     if exit_code:
         exit(exit_code)
