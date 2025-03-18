@@ -2,6 +2,7 @@
 build-backend = "pdm.backend"
 requires = ["pdm-backend"]
 
+# project
 # ===
 [project]
 authors = [{name="Nicholas de Jong", email="ndejong@threatpatrols.com"}]
@@ -30,6 +31,8 @@ Homepage = "https://github.com/threatpatrols/env-alias"
 Repository = "https://github.com/threatpatrols/env-alias.git"
 "Bug Tracker" = "https://github.com/threatpatrols/env-alias/issues"
 
+
+# slap-cli
 # ===
 [tool.slap]
 typed = true
@@ -66,6 +69,7 @@ package-build = """set -e; \
 """
 
 
+# mypy
 # ===
 [tool.mypy]
 pretty = true
@@ -84,6 +88,7 @@ warn_unreachable = true
 warn_unused_ignores = true
 
 
+# uv
 # ===
 [tool.uv]
 dev-dependencies = [
@@ -95,6 +100,7 @@ dev-dependencies = [
 ]
 
 
+# ruff
 # ===
 [tool.ruff]
 line-length = 120
