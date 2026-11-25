@@ -31,11 +31,11 @@ class EnvAliasDefinitions:
 
         loaded_definitions = {}
 
-        with open(definitions_file) as f:
-            try:
+        try:
+            with open(definitions_file, encoding="utf-8") as f:
                 loaded_definitions = yaml.safe_load(f.read())
-            except yaml.YAMLError as e:
-                raise EnvAliasException(f"Failed to load definitions_file={str(definitions_file)!r}", detail=e) from e
+        except (OSError, UnicodeDecodeError, yaml.YAMLError) as e:
+            raise EnvAliasException(f"Failed to load definitions_file={str(definitions_file)!r}", detail=e) from e
 
         if not isinstance(loaded_definitions, dict) or self.definitions_root not in loaded_definitions:
             raise EnvAliasException(f"Unable to locate top-level definitions root {self.definitions_root!r}")

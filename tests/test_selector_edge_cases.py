@@ -64,3 +64,19 @@ def test_override_false_respects_empty_value(capsys, config_file):
     finally:
         if "EMPTY_VAR" in os.environ:
             del os.environ["EMPTY_VAR"]
+
+
+def test_selector_trailing_brackets():
+    """Bracket indices at the end of a selector (e.g. a[0], a[0][1]) must work."""
+    content = '{"a": ["first", ["nested0", "nested1"]]}'
+    assert EnvAliasSelector.json_content(content, "a[0]") == "first"
+    assert EnvAliasSelector.json_content(content, "a[1][1]") == "nested1"
+
+
+def test_selector_numeric_dict_keys():
+    """Numeric string keys in JSON/YAML dicts (e.g. AWS account IDs) must resolve."""
+    json_content = '{"accounts": {"123456789012": {"env": "prod"}}}'
+    assert EnvAliasSelector.json_content(json_content, "accounts.123456789012.env") == "prod"
+
+    yaml_content = "1: one\n"
+    assert EnvAliasSelector.yaml_content(yaml_content, "1") == "one"

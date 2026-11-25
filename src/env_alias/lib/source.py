@@ -5,14 +5,17 @@ import hashlib
 import os
 import secrets
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
 import textwrap
+import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from .. import LOGGER_LEVEL, LOGGER_NAME, __title__, __version__
 from ..exceptions import EnvAliasException
@@ -70,6 +73,55 @@ def _sniff_content_type(name: str, mime: str | None = None) -> ContentType:
     return ContentType.TEXT
 
 
+class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Validate redirect targets before following them."""
+
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        target = urllib.parse.urljoin(req.full_url, newurl)
+        target_lower = target.lower()
+        if not target_lower.startswith(("http://", "https://")):
+            raise EnvAliasException(f"Rejected redirect to disallowed scheme: {target!r}")
+        if req.full_url.lower().startswith("https://") and target_lower.startswith("http://"):
+            raise EnvAliasException(f"Rejected insecure HTTPS-to-HTTP redirect: {target!r}")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _get_private_vault_dir() -> str:
+    """Return a user-owned 0700 directory inside the system temp directory."""
+    uid = os.getuid() if hasattr(os, "getuid") else None
+    dir_name = f"env-alias-{uid}" if uid is not None else "env-alias"
+    vault_dir = os.path.join(tempfile.gettempdir(), dir_name)
+
+    try:
+        os.mkdir(vault_dir, 0o700)
+    except FileExistsError:
+        pass
+    except OSError as e:
+        raise EnvAliasException(f"Unable to create vault password directory {vault_dir!r}", detail=e) from e
+
+    try:
+        st = os.lstat(vault_dir)
+    except OSError as e:
+        raise EnvAliasException(f"Unable to inspect vault password directory {vault_dir!r}", detail=e) from e
+
+    if not stat.S_ISDIR(st.st_mode):
+        raise EnvAliasException(f"Vault password directory {vault_dir!r} is not a directory.")
+    if uid is not None and st.st_uid != uid:
+        raise EnvAliasException(f"Vault password directory {vault_dir!r} is not owned by the current user.")
+    if stat.S_IMODE(st.st_mode) & 0o077:
+        os.chmod(vault_dir, 0o700)
+
+    return vault_dir
+
+
 class EnvAliasSource:
     @staticmethod
     def local(filename: Path) -> SourcedContent:
@@ -83,8 +135,11 @@ class EnvAliasSource:
         if not os.path.isfile(filename):
             raise EnvAliasException(f"Unable to locate filename={str(filename)!r}")
 
-        with open(filename) as f:
-            content = f.read()
+        try:
+            with open(filename, encoding="utf-8") as f:
+                content = f.read()
+        except (OSError, UnicodeDecodeError) as e:
+            raise EnvAliasException(f"Unable to read filename={str(filename)!r}", detail=e) from e
 
         if not content:
             raise EnvAliasException(f"Empty content received from filename={str(filename)!r}")
@@ -104,14 +159,20 @@ class EnvAliasSource:
         _validate_scheme(url)
 
         req = urllib.request.Request(url, headers={"User-Agent": f"{__title__.replace(' ', '')}/{__version__}"})
+        opener = urllib.request.build_opener(_SafeRedirectHandler)
 
-        with urllib.request.urlopen(req, timeout=_REMOTE_TIMEOUT_SECONDS) as res:
-            _validate_scheme(res.url)
-            content = res.read(_REMOTE_MAX_RESPONSE_BYTES + 1)
-            if len(content) > _REMOTE_MAX_RESPONSE_BYTES:
-                raise EnvAliasException(f"Response from {url!r} exceeds {_REMOTE_MAX_RESPONSE_BYTES} byte limit")
-            content = content.decode()
-            info = res.info()
+        try:
+            with opener.open(req, timeout=_REMOTE_TIMEOUT_SECONDS) as res:
+                _validate_scheme(res.url)
+                raw = res.read(_REMOTE_MAX_RESPONSE_BYTES + 1)
+                if len(raw) > _REMOTE_MAX_RESPONSE_BYTES:
+                    raise EnvAliasException(f"Response from {url!r} exceeds {_REMOTE_MAX_RESPONSE_BYTES} byte limit")
+                content = raw.decode("utf-8")
+                info = res.info()
+        except EnvAliasException:
+            raise
+        except (urllib.error.URLError, OSError, TimeoutError, UnicodeDecodeError) as e:
+            raise EnvAliasException(f"Failed to fetch remote source {url!r}: {e}", detail=e) from e
 
         content_type = _sniff_content_type(url, info.get("content-type"))
 
@@ -132,13 +193,20 @@ class EnvAliasSource:
         stdout, stderr = sp.communicate()
 
         if sp.returncode != 0:
-            stdout_return = " ".join(str(stdout.decode("utf8")).split("\n"))[:256].strip()
+            stdout_return = " ".join(stdout.decode("utf-8", errors="replace").split("\n"))[:256].strip()
             if stdout_return:
-                logger.error(f"EnvAliasSource.execute stdout: {stdout_return!r}")
-            stderr_return = " ".join(str(stderr.decode("utf8")).split("\n"))[:256].strip()
-            raise EnvAliasException(f"EnvAliasSource.execute stderr: {stderr_return!r}", detail=_redact(command_line))
+                logger.error(f"EnvAliasSource.execute stdout: {_redact(stdout_return)!r}")
+            stderr_return = " ".join(stderr.decode("utf-8", errors="replace").split("\n"))[:256].strip()
+            raise EnvAliasException(
+                f"EnvAliasSource.execute stderr: {_redact(stderr_return)!r}", detail=_redact(command_line)
+            )
 
-        content = stdout.decode("utf8").rstrip("\n")
+        try:
+            content = stdout.decode("utf-8").rstrip("\n")
+        except UnicodeDecodeError as e:
+            raise EnvAliasException(
+                "EnvAliasSource.execute produced non-UTF-8 output.", detail=_redact(command_line)
+            ) from e
         return SourcedContent(
             source=command_line, source_method=SourceMethod.EXECUTE, content=content, content_type=ContentType.TEXT
         )
@@ -147,7 +215,10 @@ class EnvAliasSource:
     def stdin(prompt: str) -> SourcedContent:
         logger.debug(f"EnvAliasContent.stdin({prompt=})")
         print(prompt, end="", file=sys.stderr)
-        content = input()
+        try:
+            content = input()
+        except EOFError as e:
+            raise EnvAliasException("Unexpected EOF while reading from <stdin>.") from e
         return SourcedContent(
             source=prompt, source_method=SourceMethod.STDIN, content=content, content_type=ContentType.TEXT
         )
@@ -243,51 +314,79 @@ class EnvAliasSource:
         if not os.path.isfile(filename):
             raise EnvAliasException(f"Unable to locate file {str(filename)!r}")
 
-        # P1-5: Use an ephemeral random path for the scratch helper script
-        # instead of the deterministic path from ansible_vault_password_file().
-        # The deterministic path belongs to the `password_file` strategy which
-        # must outlive this process; this method only needs a scratch file for
-        # the duration of the decrypt command.
+        # Use an ephemeral random path for the scratch helper script and pass
+        # secrets only via the child process's env dict (never mutating
+        # os.environ, and never using shell=True).
         random_envvar = "".join(secrets.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ") for _ in range(16))
-        os.environ[random_envvar] = password
 
-        # Create an ephemeral password file at a random temp path
         fd, ephemeral_path = tempfile.mkstemp(prefix="env-alias-vault-")
-        os.close(fd)
-        script_content = textwrap.dedent(f"""
+        script_content = (
+            textwrap.dedent(f"""
             #!/bin/sh
-            echo "${"{" + random_envvar + "}"}"
+            printf '%s\\n' "${"{" + random_envvar + "}"}"
         """).strip()
+            + "\n"
+        )
         try:
-            with open(ephemeral_path, "w") as f:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(script_content)
             os.chmod(ephemeral_path, 0o700)
         except Exception:
-            os.unlink(ephemeral_path)
-            raise
-
-        os.environ["ANSIBLE_VAULT_PASSWORD_FILE"] = ephemeral_path
-        command_line = f' ansible-vault decrypt --output - "{filename}"'
-
-        try:
-            execute_content = EnvAliasSource.execute(command_line)
-        finally:
-            # os.environ.pop (not os.unsetenv) clears both the real environ
-            # and the Python mapping (P1-1a). The try/finally ensures the
-            # password env var, ANSIBLE_VAULT_PASSWORD_FILE, and the temp
-            # script are all cleaned up even when execute raises — the
-            # expected path for a wrong password (P1-1b).
-            os.environ.pop(random_envvar, None)
-            os.environ.pop("ANSIBLE_VAULT_PASSWORD_FILE", None)
             with contextlib.suppress(OSError):
                 os.unlink(ephemeral_path)
+            raise
+
+        command = [ansible_vault, "decrypt", "--output", "-", str(filename)]
+        child_env = {
+            **os.environ,
+            random_envvar: password,
+            "ANSIBLE_VAULT_PASSWORD_FILE": ephemeral_path,
+        }
+        logger.debug(f"EnvAliasSource.ansible_vault(command={_redact(' '.join(command))!r})")
+
+        try:
+            returncode, stdout, stderr = EnvAliasSource._ansible_vault_run(command=command, env=child_env)
+        finally:
+            with contextlib.suppress(OSError):
+                os.unlink(ephemeral_path)
+
+        if returncode != 0:
+            stderr_return = " ".join(stderr.decode("utf-8", errors="replace").split("\n"))[:256].strip()
+            raise EnvAliasException(
+                f"EnvAliasSource.ansible_vault stderr: {_redact(stderr_return)!r}",
+                detail=_redact(" ".join(command)),
+            )
+
+        try:
+            content = stdout.decode("utf-8").rstrip("\n")
+        except UnicodeDecodeError as e:
+            raise EnvAliasException(
+                "EnvAliasSource.ansible_vault produced non-UTF-8 output.",
+                detail=_redact(" ".join(command)),
+            ) from e
 
         return SourcedContent(
             source=str(filename),
             source_method=SourceMethod.ANSIBLE_VAULT,
-            content=execute_content.content,
+            content=content,
             content_type=ContentType.YAML,
         )
+
+    @staticmethod
+    def _ansible_vault_run(command: list[str], env: dict[str, str]) -> tuple[int, bytes, bytes]:
+        """Run an ansible-vault command with an explicit argv list and env dict.
+
+        Split out so tests can stub the subprocess without a real vault file.
+        Returns ``(returncode, stdout, stderr)``.
+        """
+        proc = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+        stdout, stderr = proc.communicate()
+        return proc.returncode, stdout, stderr
 
     @staticmethod
     def ansible_vault_password_file(password: str) -> SourcedContent:
@@ -300,18 +399,44 @@ class EnvAliasSource:
         h = password_shake_2rounds.upper()[:11]
         envvar_name = chr(ord(h[0]) + 17) + h[1:] if h[0].isdigit() else h
 
-        ansible_vault_password_script = textwrap.dedent(
-            f"""
-            #!/bin/sh
-            echo "${"{" + envvar_name + "}"}"
-        """
-        ).strip()
+        ansible_vault_password_script = (
+            textwrap.dedent(
+                f"""
+                #!/bin/sh
+                printf '%s\\n' "${"{" + envvar_name + "}"}"
+            """
+            ).strip()
+            + "\n"
+        )
 
         password_shake_4rounds = EnvAliasSource.sha256_shaker(value=password, rounds=4)  # produces a consistent value
-        vault_password_file = os.path.join(tempfile.gettempdir(), password_shake_4rounds.lower()[0:12])
+        vault_dir = _get_private_vault_dir()
+        vault_password_file = os.path.join(vault_dir, password_shake_4rounds.lower()[0:12])
 
-        if not os.path.isfile(vault_password_file):
-            with open(vault_password_file, "w") as f:
+        uid = os.getuid() if hasattr(os, "getuid") else None
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+
+        try:
+            fd = os.open(vault_password_file, flags, 0o700)
+        except FileExistsError:
+            try:
+                st = os.lstat(vault_password_file)
+            except OSError as e:
+                raise EnvAliasException(
+                    f"Unable to inspect vault password file {vault_password_file!r}", detail=e
+                ) from e
+            if not stat.S_ISREG(st.st_mode) or (uid is not None and st.st_uid != uid):
+                raise EnvAliasException(
+                    f"Existing vault password file {vault_password_file!r} is not a regular file owned by current user."
+                ) from None
+            if stat.S_IMODE(st.st_mode) != 0o700:
+                os.chmod(vault_password_file, 0o700)
+        except OSError as e:
+            raise EnvAliasException(f"Unable to create vault password file {vault_password_file!r}", detail=e) from e
+        else:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(ansible_vault_password_script)
             os.chmod(vault_password_file, 0o700)
 

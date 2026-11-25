@@ -1,7 +1,7 @@
 import configparser
 import json
+import re
 from collections.abc import Callable
-from functools import reduce
 from typing import Any
 
 import yaml
@@ -82,16 +82,29 @@ class EnvAliasSelector:
 
     @staticmethod
     def __data_select(root: Any, path: str, sep: str = ".") -> str:
-        parts = [int(x) if x.isdigit() and x.isascii() else x for x in path.split(sep)]
-        result = reduce(lambda acc, nxt: acc[nxt], parts, root)
-        if not isinstance(result, (str, int, float, bool)):
-            raise EnvAliasException(f"Selection resolved to {type(result).__name__}, but only scalars are supported.")
-        return str(result)
+        current = root
+        for segment in path.split(sep):
+            if isinstance(current, list):
+                if not (segment.isascii() and segment.isdigit()):
+                    raise KeyError(f"List index must be a non-negative integer, got {segment!r}")
+                current = current[int(segment)]
+            elif isinstance(current, dict):
+                if segment in current:
+                    current = current[segment]
+                elif segment.isascii() and segment.isdigit() and int(segment) in current:
+                    current = current[int(segment)]
+                else:
+                    raise KeyError(segment)
+            else:
+                raise TypeError(f"Cannot traverse into {type(current).__name__} with {segment!r}")
+        if not isinstance(current, (str, int, float, bool)):
+            raise EnvAliasException(f"Selection resolved to {type(current).__name__}, but only scalars are supported.")
+        return str(current)
 
     @staticmethod
     def __parse_selector_path(selector_path: str) -> str:
-        selector_path = selector_path.replace("/", ".")
-        return ("." + selector_path.replace("[", ".").replace("]", ".")).replace("..", ".")[1:]
+        normalized = selector_path.replace("/", ".").replace("[", ".").replace("]", ".")
+        return re.sub(r"\.+", ".", normalized).strip(".")
 
 
 PARSER_STRATEGIES: dict[ParserType, Callable[[str, str | None], str]] = {

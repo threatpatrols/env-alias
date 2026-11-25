@@ -152,6 +152,12 @@ class TestSha256Shaker:
 class TestAnsibleVaultPasswordFile:
     """Verify ansible_vault_password_file() properties over many random passwords."""
 
+    @pytest.fixture(autouse=True)
+    def _isolate_tempdir(self, tmp_path, monkeypatch):
+        import tempfile
+
+        monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
+
     def test_envvar_starts_with_letter(self):
         """Env var names must always start with a letter (POSIX requirement)."""
         for _ in range(_ITERATIONS_COUNT):
@@ -217,3 +223,41 @@ class TestAnsibleVaultPasswordFile:
             assert result.content not in seen_paths, f"Duplicate file path {result.content!r} for password {pw!r}"
             seen_names.add(result.source)
             seen_paths.add(result.content)
+
+    def test_private_dir_and_script_permissions(self):
+        """Script lives in a 0700 user-private directory with 0700 mode."""
+        import stat
+
+        result = EnvAliasSource.ansible_vault_password_file(password="perm-test-pw")
+        script_path = result.content
+        vault_dir = os.path.dirname(script_path)
+        assert stat.S_IMODE(os.lstat(vault_dir).st_mode) == 0o700
+        assert stat.S_IMODE(os.lstat(script_path).st_mode) == 0o700
+
+    def test_symlink_vault_dir_rejected(self, tmp_path):
+        """A symlink placed at the private vault dir must be rejected."""
+        from env_alias.exceptions import EnvAliasException
+
+        uid = os.getuid() if hasattr(os, "getuid") else None
+        dir_name = f"env-alias-{uid}" if uid is not None else "env-alias"
+        decoy = tmp_path / "decoy"
+        decoy.mkdir()
+        (tmp_path / dir_name).symlink_to(decoy)
+
+        with pytest.raises(EnvAliasException, match="not a directory"):
+            EnvAliasSource.ansible_vault_password_file(password="symlink-dir-pw")
+
+    def test_script_preserves_echo_special_passwords(self):
+        """Generated script must use printf so -n, -e, and backslashes round-trip verbatim."""
+        import subprocess
+
+        for pw in ["-n", "-e", r"back\nslash\t\\end", "-n leading"]:
+            result = EnvAliasSource.ansible_vault_password_file(password=pw)
+            proc = subprocess.run(
+                [result.content],
+                env={**os.environ, result.source: pw},
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            assert proc.stdout == f"{pw}\n"

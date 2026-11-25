@@ -1,4 +1,6 @@
 import logging
+import os
+import sys
 from typing import Any
 
 LOGGING_FORMAT = "%(asctime)s | %(levelname)s | __name__ | %(message)s"
@@ -65,12 +67,11 @@ class LoggingFormatterWrapper(logging.Formatter):
             kwargs["fmt"] = kwargs.get("fmt", LOGGING_FORMAT).replace("__name__", kwargs["name"])
             del kwargs["name"]
         if "colorize_levelname" in kwargs:
-            self.colorize_levelname = True
-            del kwargs["colorize_levelname"]
+            self.colorize_levelname = bool(kwargs.pop("colorize_levelname"))
         logging.Formatter.__init__(self, **kwargs)
 
     def format(self, record: logging.LogRecord) -> str:
-        if self.colorize_levelname:
+        if self.colorize_levelname and sys.stderr.isatty() and not os.environ.get("NO_COLOR"):
             return self.colorized_levelname_format(record)
         return logging.Formatter.format(self, record)
 
@@ -92,6 +93,11 @@ class LoggingFormatterWrapper(logging.Formatter):
 
         if color_code:
             color_reset = "\x1b[0m"  # reset
-            record.levelname = f"{color_code}{record.levelname}{color_reset}"
+            original_levelname = record.levelname
+            record.levelname = f"{color_code}{original_levelname}{color_reset}"
+            try:
+                return logging.Formatter.format(self, record)
+            finally:
+                record.levelname = original_levelname
 
         return logging.Formatter.format(self, record)

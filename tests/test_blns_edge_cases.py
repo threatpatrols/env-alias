@@ -66,6 +66,10 @@ class TestSha256ShakerNaughty:
 class TestAnsibleVaultPasswordFileNaughty:
     """ansible_vault_password_file must handle every naughty string without crashing."""
 
+    @pytest.fixture(autouse=True)
+    def _isolate_tempdir(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
+
     def test_envvar_starts_with_letter(self):
         for s in _BLNS:
             result = EnvAliasSource.ansible_vault_password_file(password=s)

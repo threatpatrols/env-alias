@@ -62,20 +62,25 @@ class EnvAliasGenerator:
 
     def generate(self) -> None:
         logger.debug("EnvAliasGenerator.generate()")
+        _secrets_to_redact.clear()
 
-        for config_file in self.definitions_files:
-            self._generate_from_file(config_file)
+        try:
+            # All-or-nothing output across all files: buffer every export line
+            # and flush only after every definition in every file succeeds.
+            all_exports: list[str] = []
+            for config_file in self.definitions_files:
+                all_exports.extend(self._generate_from_file(config_file))
 
-    def _generate_from_file(self, config_file: Path) -> None:
+            for line in all_exports:
+                print(line, file=sys.stdout)
+        finally:
+            _secrets_to_redact.clear()
+
+    def _generate_from_file(self, config_file: Path) -> list[str]:
         definitions = EnvAliasDefinitions(definitions_root=DEFINITIONS_ROOT).load_definitions(config_file)
         if not definitions:
             raise EnvAliasException(f"Empty or malformed {config_file=}")
 
-        # All-or-nothing output: buffer every export line and flush only after
-        # every definition resolves successfully. A failure on definition 5 of
-        # 10 must NOT leave 4 exports on stdout — the tool's output is consumed
-        # as `source <(env-alias ...)`, so partial output means a partially-set
-        # environment with the shell reporting success (P0-4).
         buffered_exports: list[str] = []
 
         for definition in definitions:
@@ -116,9 +121,7 @@ class EnvAliasGenerator:
                         )
                     )
 
-        # All definitions resolved — flush the buffered export lines now.
-        for line in buffered_exports:
-            print(line, file=sys.stdout)
+        return buffered_exports
 
     def build_export(self, env_name: str, env_value: str | None = "", output_prefix: str = " ") -> str:
         if not _ENV_NAME_RE.fullmatch(env_name):
@@ -203,7 +206,7 @@ class EnvAliasGenerator:
         env_name = value[4:]
 
         env_value = os.getenv(env_name, None)
-        if env_value is None or len(value) < 1:
+        if env_value is None:
             env_value = self.values_generated.get(env_name)
 
         if env_value is None:

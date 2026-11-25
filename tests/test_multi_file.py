@@ -92,8 +92,10 @@ class TestGeneratorMultiFile:
         f2.write_text("env-alias:\n    FAIL:\n        exec: 'definitely-unknown-cmd-XYZ'\n")
 
         gen = EnvAliasGenerator(config_file=[f1, f2])
-        with pytest.raises(EnvAliasException):
+        buf = io.StringIO()
+        with pytest.raises(EnvAliasException), contextlib.redirect_stdout(buf):
             gen.generate()
+        assert buf.getvalue() == "", f"partial stdout leaked from earlier file: {buf.getvalue()!r}"
 
     def test_second_file_sees_first_files_env(self, tmp_path, config_file):
         """env: references from file2 should resolve values set by file1."""
