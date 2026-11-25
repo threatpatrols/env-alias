@@ -14,6 +14,7 @@ class SourceMethod(str, Enum):
     EXECUTE = "execute"
     ANSIBLE_VAULT = "ansible_vault"
     ANSIBLE_VAULT_PASSWORD_FILE = "ansible_vault_password_file"
+    SOPS = "sops"
 
 
 class ParserType(str, Enum):

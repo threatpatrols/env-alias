@@ -12,7 +12,7 @@ from ..lib.logger import logger_get
 from ..lib.selector import PARSER_STRATEGIES, EnvAliasSelector
 from ..lib.source import SOURCE_STRATEGIES, _secrets_to_redact
 from ..models.constants import ContentType, ParserType, SelectorType, ShellType, SourceMethod, ValueTo
-from ..models.envalias_definition import EnvAliasDefinition
+from ..models.envalias_definition import TEMPLATE_TOKEN_RE, EnvAliasDefinition, extract_template_placeholders
 from ..models.sourced_content import SourcedContent
 
 logger = logger_get(name=LOGGER_NAME, loglevel=LOGGER_LEVEL)
@@ -66,6 +66,8 @@ def _describe_source(definition: EnvAliasDefinition) -> str:
     """Return a concise source label for a definition without fetching or running anything."""
     if definition.value is not None:
         return "env" if definition.value.startswith("env:") else "value"
+    if definition.template is not None:
+        return "template"
     for strategy in SOURCE_STRATEGIES:
         if strategy.matches(definition):
             if strategy.name == "local" and definition.source and definition.source.startswith("env:"):
@@ -184,6 +186,21 @@ class EnvAliasGenerator:
                             )
                             file_warnings += 1
 
+                if definition.template is not None:
+                    for ref_name in extract_template_placeholders(definition.template):
+                        if ref_name not in defined_so_far and ref_name in all_file_names:
+                            logger.error(
+                                f"{config_file}: {definition.name!r} template references '{{{ref_name}}}' "
+                                "before it is defined."
+                            )
+                            file_errors += 1
+                        elif ref_name not in defined_so_far and ref_name not in os.environ:
+                            logger.warning(
+                                f"{config_file}: {definition.name!r} template references '{{{ref_name}}}', "
+                                "which is not defined earlier or currently set in the environment."
+                            )
+                            file_warnings += 1
+
                 if definition.source and definition.keepass_password and shutil.which("keepassxc-cli") is None:
                     logger.warning(
                         f"{config_file}: {definition.name!r} requires 'keepassxc-cli', which is not on PATH."
@@ -194,6 +211,10 @@ class EnvAliasGenerator:
                     logger.warning(
                         f"{config_file}: {definition.name!r} requires 'ansible-vault', which is not on PATH."
                     )
+                    file_warnings += 1
+
+                if definition.sops and shutil.which("sops") is None:
+                    logger.warning(f"{config_file}: {definition.name!r} requires 'sops', which is not on PATH.")
                     file_warnings += 1
 
                 if (
@@ -322,11 +343,37 @@ class EnvAliasGenerator:
         logger.debug(f"output={_redact_secrets(output, self.values_generated)!r}")
         return output
 
+    def render_template(self, template: str) -> str:
+        """Render a single-pass ``{VAR}`` template using os.environ and earlier definitions."""
+
+        def _replace(match: re.Match[str]) -> str:
+            token = match.group(1)
+            var_name = match.group(2)
+            if token == "{{":
+                return "{"
+            if token == "}}":
+                return "}"
+            if var_name is None:
+                raise EnvAliasException(
+                    f"Invalid template placeholder {token!r}: use '{{NAME}}' or '{{' / '}}' for literal braces."
+                )
+            env_value = os.getenv(var_name, None)
+            if env_value is None:
+                env_value = self.values_generated.get(var_name)
+            if env_value is None:
+                raise EnvAliasException(f"Template placeholder '{{{var_name}}}' references an unset variable.")
+            return env_value
+
+        return TEMPLATE_TOKEN_RE.sub(_replace, template)
+
     def get_definition_value(self, definition: EnvAliasDefinition) -> str | None:
         logger.debug(f"EnvAliasGenerator.get_definition_value({definition.name=}, ...)")
 
         if definition.value is not None:
             return definition.value
+
+        if definition.template is not None:
+            return self.render_template(definition.template)
 
         sourced_content = self.get_content_from_source(definition=definition)
 

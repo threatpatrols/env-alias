@@ -31,10 +31,10 @@ env-alias:
 parses with a null root and is rejected. Add at least one definition. A truly empty file (no `env-alias:` key at
 all) reports "Unable to locate top-level definitions root 'env-alias'".
 
-## "Unable to locate required binary 'keepassxc-cli'" / "'ansible-vault'"
+## "Unable to locate required binary 'keepassxc-cli'" / "'ansible-vault'" / "'sops'"
 
-Keepass and Ansible Vault sources require the `keepassxc-cli` and `ansible-vault` executables respectively.
-Install them (e.g. `apt install keepassxc ansible`) and ensure they're on `PATH`.
+KeePass, Ansible Vault, and SOPS sources require the `keepassxc-cli`, `ansible-vault`, and `sops`
+executables respectively. Install them and ensure they are on `PATH`.
 
 ## Remote (`http` / `https`) sources fail
 

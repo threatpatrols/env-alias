@@ -4,7 +4,8 @@ The `value` definition-attribute assigns content directly. It bypasses `source`,
 `selector`, so use it for a literal value or a whole-value `env:` reference.
 
 `value: "env:NAME"` looks up `NAME` in the process environment first, then in an earlier definition.
-The reference must occupy the entire value; it does not concatenate multiple variables. Definitions are
+The reference must occupy the entire value; it does not concatenate multiple variables — use
+[template](template.md) when you need to compose multiple variables into one string. Definitions are
 evaluated in order, so place the value-producing definition before its consumer. See
 [source](source.md#env-references) for the complete `env:` rules.
 

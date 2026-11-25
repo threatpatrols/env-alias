@@ -17,6 +17,7 @@ _DOCS_ATTRS_DIR = _PROJECT_ROOT / "docs" / "docs" / "definition-attributes"
 _USER_ATTR_TO_DOC = {
     "name": "name.md",
     "value": "value.md",
+    "template": "template.md",
     "source": "source.md",
     "exec_": "exec.md",
     "parser": "parser.md",
@@ -26,6 +27,7 @@ _USER_ATTR_TO_DOC = {
     "keepass_password": "keepass-password.md",
     "ansible_vault_password": "ansible-vault-password.md",
     "ansible_vault_password_file": "ansible-vault-password-file.md",
+    "sops": "sops.md",
 }
 _INTERNAL_FIELDS = {"filename", "is_internal_only"}
 

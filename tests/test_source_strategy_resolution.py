@@ -50,6 +50,15 @@ class TestStrategyResolution:
         d = _make_definition(ansible_vault_password="secret", ansible_vault_password_file=True)
         assert _resolve_strategy(d) == "ansible_vault_password_file"
 
+    def test_sops(self):
+        d = _make_definition(source="/path/to/secrets.enc.yaml", sops=True)
+        assert _resolve_strategy(d) == "sops"
+
+    def test_sops_takes_priority_over_local(self):
+        """sops must match before local because local is a catch-all."""
+        d = _make_definition(source="/path/to/secrets.enc.yaml", sops=True)
+        assert _resolve_strategy(d) == "sops"
+
     def test_local_file(self):
         d = _make_definition(source="/path/to/config.yml")
         assert _resolve_strategy(d) == "local"
@@ -88,6 +97,11 @@ class TestStrategyResolution:
         d = _make_definition(value="hello")
         assert _resolve_strategy(d) is None
 
+    def test_no_strategy_matches_template_only(self):
+        """A definition with only template should not match any source strategy."""
+        d = _make_definition(template="hello-{USER}")
+        assert _resolve_strategy(d) is None
+
     def test_strategy_names_are_unique(self):
         """All strategy names should be unique."""
         names = [s.name for s in SOURCE_STRATEGIES]
@@ -102,6 +116,7 @@ class TestStrategyResolution:
             "keepass",
             "ansible_vault",
             "ansible_vault_password_file",
+            "sops",
             "local",
             "exec",
         ]

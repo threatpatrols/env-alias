@@ -15,14 +15,14 @@ fetched lazily, on demand, when you invoke the alias, so secrets are never loade
 
 ## Features
 
-* **Data sources:** local files, `http(s)` URLs, `<getpass>`, `<stdin>`, KeePass, Ansible Vault, and stdout from `exec`.
+* **Data sources:** local files, `http(s)` URLs, `<getpass>`, `<stdin>`, KeePass, Ansible Vault, SOPS (`sops: true`), and stdout from `exec`.
 * **Content formats:** JSON, YAML, TOML, dotenv (`.env`), INI, and plaintext.
 * **Selectors:** dot, slash, and bracket paths for JSON/YAML/TOML; exact key names for dotenv; `<section>.<option>` for INI; line numbers for plaintext.
 * **Shell targets:** Bash/Zsh (default) and Fish (`--shell fish`).
 * **Ephemeral execution:** `--run <file.yml>... -- <command>` injects exported variables into a single child command without exporting them to your interactive shell.
 * **Static validation & inspection:** `--check <file.yml>...` validates definitions without fetching secrets or running `exec`; `--list <file.yml>...` inspects variable names and source types.
 * **Ansible Vault Password File helper:** generates the executable password-file arrangement Ansible expects.
-* **`env:NAME` references:** reuse one whole value from the process environment or an earlier definition.
+* **`env:NAME` references & `template`:** reuse one whole value with `env:NAME`, or compose multiple variables safely with `template: "...{VAR}..."`.
 * **Internal-only values:** `name: null` suppresses normal export to the calling shell while retaining the value for later definitions in the same run.
 * **`exec` support:** run prerequisite or startup commands as part of a definition.
 * **Terminal-only messages:** `value_to: <stderr>` writes to the terminal without polluting stdout.

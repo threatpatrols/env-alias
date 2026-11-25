@@ -3,6 +3,7 @@ import contextlib
 import getpass
 import hashlib
 import os
+import re
 import secrets
 import shutil
 import stat
@@ -456,6 +457,69 @@ class EnvAliasSource:
         )
 
     @staticmethod
+    def sops(filename: Path) -> SourcedContent:
+        """Decrypt a SOPS-encrypted file via argv list (no shell=True)."""
+        logger.debug(f"EnvAliasSource.sops(filename={str(filename)})")
+
+        sops_bin = shutil.which("sops")
+        if not sops_bin:
+            raise EnvAliasException("Unable to locate required binary 'sops', is it installed?")
+
+        filename = Path(os.path.expanduser(filename))
+        if not os.path.isfile(filename):
+            raise EnvAliasException(f"Unable to locate file {str(filename)!r}")
+
+        command = [sops_bin, "--decrypt", str(filename)]
+        logger.debug(f"EnvAliasSource.sops(command={_redact(' '.join(command))!r})")
+
+        returncode, stdout, stderr = EnvAliasSource._sops_run(command=command)
+
+        if returncode != 0:
+            stderr_return = " ".join(stderr.decode("utf-8", errors="replace").split("\n"))[:256].strip()
+            raise EnvAliasException(
+                f"EnvAliasSource.sops stderr: {_redact(stderr_return)!r}",
+                detail=_redact(" ".join(command)),
+            )
+
+        try:
+            content = stdout.decode("utf-8").rstrip("\n")
+        except UnicodeDecodeError as e:
+            raise EnvAliasException(
+                "EnvAliasSource.sops produced non-UTF-8 output.",
+                detail=_redact(" ".join(command)),
+            ) from e
+
+        if not content:
+            raise EnvAliasException(f"Empty content received from SOPS file {str(filename)!r}")
+
+        # Strip common trailing .enc / .sops markers so e.g. secrets.yaml.enc
+        # or .env.sops still auto-sniffs its underlying format.
+        sniff_name = re.sub(r"\.(enc|sops)$", "", str(filename), flags=re.IGNORECASE)
+        content_type = _sniff_content_type(sniff_name)
+        logger.debug(f"EnvAliasSource.sops(filename={str(filename)}) > {content_type=}")
+
+        return SourcedContent(
+            source=str(filename),
+            source_method=SourceMethod.SOPS,
+            content=content,
+            content_type=content_type,
+        )
+
+    @staticmethod
+    def _sops_run(command: list[str]) -> tuple[int, bytes, bytes]:
+        """Run a sops command with an explicit argv list.
+
+        Split out so tests can stub the subprocess without a real sops binary or key.
+        """
+        proc = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        stdout, stderr = proc.communicate()
+        return proc.returncode, stdout, stderr
+
+    @staticmethod
     def sha256_shaker(value: str | bytes, rounds: int = 1, salt: str = _SALT_SHAKE, _round_count: int = 0) -> str:
         if _round_count == rounds:
             return base64.b64encode(value, altchars=b"az").decode()  # type: ignore[arg-type]
@@ -513,6 +577,11 @@ SOURCE_STRATEGIES: list[SourceStrategy] = [
         fetch=lambda d: EnvAliasSource.ansible_vault_password_file(  # type: ignore[arg-type]
             password=d.ansible_vault_password
         ),
+    ),
+    SourceStrategy(
+        name="sops",
+        matches=lambda d: bool(d.source and d.sops),
+        fetch=lambda d: EnvAliasSource.sops(filename=Path(d.source)),  # type: ignore[arg-type]
     ),
     SourceStrategy(
         name="local",

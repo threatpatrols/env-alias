@@ -10,12 +10,14 @@ nav:
       - definition-attributes/selector.md
       - definition-attributes/name.md
       - definition-attributes/value.md
+      - definition-attributes/template.md
       - definition-attributes/value-to.md
       - definition-attributes/exec.md
       - definition-attributes/override.md
       - definition-attributes/keepass-password.md
       - definition-attributes/ansible-vault-password.md
       - definition-attributes/ansible-vault-password-file.md
+      - definition-attributes/sops.md
     - Extended Examples:
       - examples/aws-credentials.md
       - examples/terraform-aws-project.md

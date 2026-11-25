@@ -1,0 +1,40 @@
+release-date = "2026-11-26"
+
+# env-alias 0.10.0 — ephemeral --run, --check/--list, TOML/dotenv parsers,
+# Fish shell support, SOPS source, template composition, and hardening
+
+[[entries]]
+id = "b4d1e8a2-7c3f-4a90-8e5b-1f2c6d9a0e10"
+type = "feature"
+description = "Ephemeral command execution (`--run <files>... -- <cmd>`): resolves definitions all-or-nothing, injects only exported (non-internal) variables into the child process, restores parent `os.environ`, and propagates the child exit code."
+author = "ndejong@threatpatrols.com"
+
+[[entries]]
+id = "c7a3f5d1-9e2b-4c81-a6d4-3b8e0f1c5a20"
+type = "feature"
+description = "Static validation and inspection (`--check` / `--list`): validates YAML, schemas, variable names, and `env:`/`template` ordering without prompting or executing `exec:`; lists defined variables and source metadata to stderr."
+author = "ndejong@threatpatrols.com"
+
+[[entries]]
+id = "d9e2a4b6-1f8c-4d72-9b5e-4c1a7f3d8b30"
+type = "feature"
+description = "Added `toml` (`tomllib` on Python 3.11+, `tomli` fallback on 3.10) and `dotenv` (`.env`) parsers with automatic filename/MIME sniffing."
+author = "ndejong@threatpatrols.com"
+
+[[entries]]
+id = "e1f6c8d3-4a9b-4e63-8c7f-5d2b9a4e1c40"
+type = "feature"
+description = "Alternative shell targets (`--shell bash|zsh|fish`): emits Fish `set -gx` exports and `| source` aliases with Fish-safe single-quoting while preserving Bash/Zsh output."
+author = "ndejong@threatpatrols.com"
+
+[[entries]]
+id = "f3a8d0e5-6b1c-4f54-9d8a-6e3c0b5f2d50"
+type = "feature"
+description = "SOPS source strategy (`sops: true`) invoking `sops --decrypt` as an argv list with `.enc`/`.sops` format inference, and explicit single-pass string composition via `template:` (`{NAME}` placeholders with `{{`/`}}` literal braces)."
+author = "ndejong@threatpatrols.com"
+
+[[entries]]
+id = "a5b9e2f7-8c3d-4a45-8e9b-7f4d1c6a3e60"
+type = "fix"
+description = "Security and reliability hardening: argv-list `ansible_vault()` with isolated child env, user-private `0700` vault script dir with atomic `O_EXCL|O_NOFOLLOW` creation and `printf`, multi-file all-or-nothing stdout buffering, selector trailing-bracket and numeric dict-key fixes, pre-redirect URL validation, exception wrapping, and alias-emitter/parser/logger fixes."
+author = "ndejong@threatpatrols.com"

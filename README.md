@@ -15,7 +15,7 @@ fetched lazily, on demand, when you invoke the alias, so secrets are never loade
 
 ## Features
 
-* **Data sources:** local files, `http(s)` URLs, `<getpass>`, `<stdin>`, KeePass, Ansible Vault, and stdout from `exec`.
+* **Data sources:** local files, `http(s)` URLs, `<getpass>`, `<stdin>`, KeePass, Ansible Vault, SOPS (`sops: true`), and stdout from `exec`.
 * **Content formats:** JSON, YAML, TOML, dotenv (`.env`), INI, and plaintext.
 * **Selectors:** dot, slash, and bracket paths for JSON/YAML/TOML; exact key names for dotenv; `<section>.<option>` for INI; line numbers for plaintext.
 * **Shell targets:** Bash/Zsh (default) and Fish (`--shell fish`).
@@ -178,12 +178,14 @@ Each definition uses a small set of attributes to describe how its value is gene
 | `parser` | Explicitly use `yaml`/`yml`, `json`, `toml`, `dotenv`, `ini`, or `none`; omitted content types are inferred |
 | `selector` | Select a scalar from structured content, or a one-based line number from plaintext |
 | `name` | Override the exported env-var name; `null` suppresses export to the calling shell |
-| `value` | Set a direct value (or a whole-value `env:VAR` reference); bypasses parsing and selection |
+| `value` | Set a direct literal value (or a whole-value `env:VAR` reference); bypasses parsing and selection |
+| `template` | Compose a string from `{VAR}` placeholders (single-pass; `{{`/`}}` for literal braces) |
 | `exec` | Run a shell command; use its stdout as content |
 | `override` | Whether to overwrite an existing env value (default `true`) |
 | `keepass_password` | Password to open a Keepass `.kdbx` source |
 | `ansible_vault_password` | Password for an Ansible Vault file |
 | `ansible_vault_password_file` | Render an Ansible Vault password file |
+| `sops` | Decrypt a SOPS-encrypted local `source` file via `sops --decrypt` |
 | `value_to` | Also write a resolved value to `<stderr>`; combine with `name: null` for a terminal-only message |
 
 ## Debugging

@@ -85,6 +85,6 @@ The version is single-sourced from `src/env_alias/__init__.py` (`__version__`), 
 * `src/env_alias/main.py` — CLI entry point, mode dispatch (`--generator`, `--run`, `--check`, `--list`), shell targets (`--shell`), and alias-mode output.
 * `src/env_alias/lib/generator.py` — core resolution loop, export/run/check/list operations (batching, POSIX/Fish quoting, redaction).
 * `src/env_alias/lib/definitions.py` — YAML loading and validation into `EnvAliasDefinition` models.
-* `src/env_alias/lib/source.py` — the data-source strategies (local, remote, exec, stdin, getpass, keepass, ansible-vault).
+* `src/env_alias/lib/source.py` — the data-source strategies (local, remote, exec, stdin, getpass, keepass, ansible-vault, sops).
 * `src/env_alias/lib/selector.py` — JSON/YAML/TOML paths, dotenv key lookup, INI section/option selectors, and plaintext line selection.
 * `src/env_alias/models/` — pydantic models and typed constants.
