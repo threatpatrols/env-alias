@@ -16,11 +16,9 @@ def test_value_to_stderr_01(capsys, config_file):
     f = config_file(yaml)
     EnvAliasGenerator(config_file=f).generate()
 
-    captured_stderr = capsys.readouterr().err.rstrip()
-    assert sentinal == captured_stderr
-
-    captured_stdout = capsys.readouterr().out.rstrip()
-    assert len(captured_stdout) == 0
+    captured = capsys.readouterr()
+    assert sentinal == captured.err.rstrip()
+    assert captured.out.rstrip() == ""
 
 
 def test_value_to_stderr_01_upper(capsys, config_file):
@@ -35,11 +33,9 @@ def test_value_to_stderr_01_upper(capsys, config_file):
     f = config_file(yaml)
     EnvAliasGenerator(config_file=f).generate()
 
-    captured_stderr = capsys.readouterr().err.rstrip()
-    assert sentinal == captured_stderr
-
-    captured_stdout = capsys.readouterr().out.rstrip()
-    assert len(captured_stdout) == 0
+    captured = capsys.readouterr()
+    assert sentinal == captured.err.rstrip()
+    assert captured.out.rstrip() == ""
 
 
 def test_value_to_stdout_rejected(tmp_path, config_file):

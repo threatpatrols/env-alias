@@ -8,10 +8,10 @@ env-alias:
 
     test_value_username:
         source: "tests/data/envalias-ansible-vault-datafile.vault"
-        ansible_vault: "env:password_for_ansible_vault"
+        ansible_vault_password: "env:password_for_ansible_vault"
         selector: "all/vars/vault/project_foobar/username"
 
     test_value_password:
         source: "tests/data/envalias-ansible-vault-datafile.vault"
-        ansible_vault: "env:password_for_ansible_vault"
+        ansible_vault_password: "env:password_for_ansible_vault"
         selector: "all/vars/vault/project_foobar/password"

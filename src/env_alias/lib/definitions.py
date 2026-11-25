@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 import yaml
@@ -11,6 +12,8 @@ from ..models.envalias_definition import EnvAliasDefinition
 
 logger = logger_get(name=LOGGER_NAME, loglevel=LOGGER_LEVEL)
 
+_ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
 
 class EnvAliasDefinitions:
     definitions_root: str = DEFINITIONS_ROOT
@@ -22,6 +25,7 @@ class EnvAliasDefinitions:
     def load_definitions(self, definitions_file: Path) -> list[EnvAliasDefinition]:
         logger.debug(f"EnvAliasConfig.load_definitions(definitions_file={str(definitions_file)!r})")
 
+        definitions_file = Path(os.path.expanduser(definitions_file))
         if not os.path.isfile(definitions_file):
             raise EnvAliasException(f"Unable to locate definitions_file={str(definitions_file)!r}")
 
@@ -69,6 +73,16 @@ class EnvAliasDefinitions:
 
             definition.filename = definitions_file
             definition.is_internal_only = is_internal_only
+
+            # Validate the name before any source is fetched so that e.g. a
+            # <getpass> prompt never runs for a definition that must fail.
+            # Internal-only names are process-local handles consumed by the
+            # env: indirection, not exports, so they are exempt.
+            if not is_internal_only and not _ENV_NAME_RE.fullmatch(definition.name):
+                raise EnvAliasException(
+                    f"Invalid environment variable name {definition.name!r}: must match ^[A-Za-z_][A-Za-z0-9_]*$"
+                )
+
             definitions.append(definition)
 
             logger.debug(f"Loaded environment definition for {definition.name!r}")

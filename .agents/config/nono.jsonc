@@ -1,0 +1,31 @@
+{
+  "meta": {
+    "name": "nono-project-env-alias",
+    "version": "1.0.0",
+    "description": "Overlay for env-alias"
+  },
+
+  "filesystem": {
+    "read": [
+      "$WORKDIR/../..",
+      "$WORKDIR/.agents/config"
+    ],
+    // git-over-ssh: pushes + uv's private-lib fetch (D9, ssh:// git origin).
+    "read_file": [
+      "$HOME/.ssh/config",
+      "$HOME/.ssh/known_hosts",
+      "/etc/mime.types"
+    ],
+    "allow": [
+      "$WORKDIR",
+      "$HOME/.local/venvs",
+      "$HOME/.local/share/pipx"
+    ],
+    "unix_socket": [
+      "$SSH_AUTH_SOCK"
+    ]
+  },
+
+  "network": {
+  }
+}

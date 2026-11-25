@@ -15,12 +15,13 @@ working-tree state. This file covers the stack, the *why* behind the design, and
 | Runtime deps | `pyyaml`, `pydantic>=2` | Deliberately minimal — this is a shell-startup-path tool, so import time matters. `requests` is a **dev/test** dep only; runtime HTTP uses stdlib `urllib.request`. |
 | Build backend | `hatchling` | `src/` layout (`[tool.hatch.build.targets.wheel] packages = ["src/env_alias"]`); version kept in `env_alias.__version__` and read dynamically via `[tool.hatch.version] path`. Publish install uses `uv`/PyPI, not `setuptools`. |
 | Env / deps | `uv` | Isolated environment, never a repo-local `.venv`. See `../rules/environment.md`. |
+| Dev dependencies | `[dependency-groups] dev` (PEP 735) | Makefile targets use `--group dev`; the `env-alias[dev]` extra was removed. |
 | Task runner | `make` | `Makefile` wraps every `uv` invocation with the required isolation prefix. |
 | Lint + format | `ruff` 0.16 | Rules `E,W,F,I,B,C4,UP,SIM`; line length 120; double quotes. |
 | Type checker | `basedpyright` 1.39.9 | `typeCheckingMode = "standard"`, `pythonVersion = "3.10"`; 7 `report* = "none"` overrides and 5 `report* = "warning"` (see `pyproject.toml`) — pass is a signal, not a guarantee. |
 | Tests | `pytest` | `pytest-cov` with `--cov-fail-under=80`; markers `network`, `slow`, `requires_keepassxc`, `requires_ansible_vault`. Coverage is measured. |
 | Docs | `mkdocs-material` | `docs/` is a **separate uv project** with its own `pyproject.toml` and `uv.lock`, pinned to Python 3.12. Use the `docs-*` Makefile targets (`docs-build` runs `mkdocs build --strict`). |
-| CLI surface | stdlib only | Argument parsing is hand-rolled in `main.py`, not `argparse`. |
+| CLI surface | stdlib only | Argument parsing uses stdlib `argparse` in `main.py`. |
 
 Historical note: the project previously used `pdm` + `slap-cli` + `mypy`. Those are gone from
 `pyproject.toml` and their old workflow files (`build-tests.yml`) were deleted. Ignore them as
@@ -41,9 +42,10 @@ alias "myenv"="source <(env-alias --generator ~/myenv.yml)"
 
 Everything else follows from this:
 
-* **stdout is executable shell code.** Only `EnvAliasGenerator.output_export()` may write to it.
-  Logging, prompts, and errors go to stderr (`lib/logger.py` uses `StreamHandler()`, which defaults to
-  stderr). `value_to` targets stderr only — `<stdout>` was removed in 0.7.0.
+* **stdout is executable shell code.** In generator mode, only the buffered export lines built by
+  `EnvAliasGenerator.build_export()` may reach stdout; in alias mode, only the emitted `alias` lines
+  do. Logging, prompts, usage/help, and errors go to stderr (`lib/logger.py` uses `StreamHandler()`,
+  which defaults to stderr). `value_to` targets stderr only — `<stdout>` was removed in 0.7.0.
 * **Values must be shell-escaped, not merely quoted.** They routinely contain `"`, `$`, and backticks
   because they are passwords. Unescaped interpolation is a code-execution defect, not a cosmetic one.
 * **Exported lines are prefixed with a single space** so the shell omits them from history when
@@ -75,8 +77,8 @@ branch chain, and each entry is independently testable.
 
 Trade-off accepted, and worth knowing: `SOURCE_STRATEGIES` is an **ordered list of predicates**, and
 first-match-wins. The catch-all `bool(d.source)` local-file entry must remain last among the
-`source`-based predicates, and `bool(d.exec)` after it. This ordering is load-bearing and not yet
-enforced by any test.
+`source`-based predicates, and `bool(d.exec)` after it. This ordering is load-bearing and is pinned by
+`tests/test_source_strategy_resolution.py::test_strategy_order_is_documented`.
 
 ### Models as the validation boundary
 
@@ -149,7 +151,7 @@ If invoking `uv` directly, always run the tests using isolated virtual environme
 UV_PROJECT_ENVIRONMENT=${HOME}/.local/venvs/env-alias \
 UV_CACHE_DIR=/tmp/.uv-cache-env-alias \
 UV_LINK_MODE=copy \
-uv run --extra dev pytest
+uv run --group dev pytest
 ```
 
 ### How the tests are written
@@ -167,7 +169,7 @@ def test_something(capsys, config_file):
     EnvAliasGenerator(config_file=config_file(yaml)).generate()
 
     captured = capsys.readouterr().out.rstrip()
-    assert ' export "MY_VAR"="hello"' in captured
+    assert " export \"MY_VAR\"='hello'" in captured
 ```
 
 Note the leading space in the assertion — see the stdout contract above.
@@ -182,10 +184,9 @@ manual verification step in `../workflows/post-implementation-verification.md`.
 * Tests mutate global `os.environ` (the generator does so by design). There is an autouse
   `isolate_environ` fixture in `tests/conftest.py` that snapshots and restores it; rely on that rather
   than restoring manually.
-* `tests/conftest.py` provides reusable fixtures (`config_file`, `mkdocs_nav`, `isolate_environ`).
-  Prefer them over copy-pasting the old `__generate_config_file` helper into new test modules.
-* `tests/__init__.py` contains an unused helper and a stale `sys.path.append` pointing at a
-  pre-`src/`-layout directory. Do not extend it.
+* `tests/conftest.py` provides reusable fixtures (`config_file`, `mkdocs_nav`, `isolate_environ`,
+  `http_file_server`) — prefer them over copy-pasting setup code into new test modules.
+* `tests/__init__.py` is empty by design; keep it that way.
 * Network tests are marked `network`, and KeePass/Ansible-Vault tests require their binaries. The
   default `make test` run excludes `network` and `slow` markers; binary-requiring tests `skipif` the
   binary is absent. When adding such a test, gate it with the appropriate marker plus

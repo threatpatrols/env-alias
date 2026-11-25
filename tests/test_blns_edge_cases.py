@@ -191,8 +191,10 @@ class TestSelectorNaughty:
         """Each naughty string as an INI section.option value."""
         import configparser
 
-        # Characters that configparser treats as special syntax
-        _INI_SPECIAL = re.compile(r"[\[\]%#=\n\r\x00-\x1f]")
+        # Characters that configparser treats as special syntax.
+        # '%' is NOT listed: with interpolation=None (selector.py) a bare '%'
+        # is legal and must round-trip.
+        _INI_SPECIAL = re.compile(r"[\[\]#=\n\r\x00-\x1f]")
 
         for s in _BLNS:
             content = f"[section]\noption = {s}"
@@ -377,12 +379,23 @@ class TestDefinitionNaughty:
                 pytest.fail(f"EnvAliasDefinition crashed on selector {s!r}: {e}")
 
     def test_parser_field_naughty(self):
-        """Each naughty string as a parser field."""
+        """Each naughty string as a parser field.
+
+        Valid parser names must be accepted (lowercased); every other string
+        must be rejected now that the model validates parser values.
+        """
+        from pydantic import ValidationError
+
+        from env_alias.models.constants import ParserType
         from env_alias.models.envalias_definition import EnvAliasDefinition
 
+        valid_parsers = {p.value for p in ParserType}
         for s in _BLNS:
             try:
                 d = EnvAliasDefinition(name="TEST", value="val", parser=s)  # pyright: ignore[reportCallIssue]
-                assert d.parser is None or d.parser == s.lower()
-            except Exception as e:
-                pytest.fail(f"EnvAliasDefinition crashed on parser {s!r}: {e}")
+                if s and s.lower() in valid_parsers:
+                    assert d.parser == s.lower()
+                else:
+                    assert d.parser is None  # '' and friends behave as unset
+            except ValidationError as e:
+                assert not (s and s.lower() in valid_parsers), f"crashed on valid parser {s!r}: {e}"

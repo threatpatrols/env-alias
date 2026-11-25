@@ -32,13 +32,24 @@ Walkthrough:
       ~/.config/env-alias/env-project-c.yml)
     ```
 
-    Or using a file pattern (glob):
+    Or using a file pattern (glob) — **quote it**, so the shell hands the pattern to env-alias
+    (an unquoted pattern is expanded by the shell first, which defeats env-alias's own matching
+    and aborts in zsh when nothing matches):
 
     ```shell
-    source <(env-alias ~/.config/env-alias/env-*.yml)
+    source <(env-alias '~/.config/env-alias/env-*.yml')
     ```
 
 2. One invocation emits **one lazy alias per file**, named from each basename —
    `env-project-a`, `env-project-b`, `env-project-c`.
 3. Each alias loads **only its own** file when invoked, so running `env-project-a` reads just
    `SERVICE_A_URL`, and nothing is fetched for a project until you actually use it.
+
+### Filename rules
+
+* Each matched file becomes an alias named from its basename. A basename containing a dot
+  (e.g. `prod.env.yml`) cannot be auto-named — register those with an explicit alias:
+  `source <(env-alias myalias prod.env.yml)`.
+* Non-file matches (directories, broken links) are skipped with a warning.
+* Two files that would produce the same alias name are an error — use explicit alias names.
+* Stored paths are absolute, so the generated aliases work from any working directory.

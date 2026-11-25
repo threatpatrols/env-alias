@@ -31,7 +31,10 @@ class EnvAliasSelector:
             raise EnvAliasException('Selector path for INI content must be in the form "<section>.<option>" only.')
 
         try:
-            config = configparser.ConfigParser()
+            # interpolation=None: values routinely contain '%' (passwords) and
+            # BasicInterpolation would raise on them. Consequence: '%%' is no
+            # longer an escape — it stays a literal '%%'.
+            config = configparser.ConfigParser(interpolation=None)
             config.read_string(content)
         except Exception as e:
             raise EnvAliasException("Unable to parse and load the INI content data provided.", detail=e) from e

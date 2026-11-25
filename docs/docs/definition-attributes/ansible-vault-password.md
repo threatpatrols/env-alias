@@ -49,7 +49,7 @@ env-alias:
   MYPROJECT_DATABASE_PASSWORD:
     source: "~/secrets/myproject.vault"
     selector: "all/vars/database/password"
-    ansible_vault_password: "env:ANSIBLE_VAULT_PASSWORD_FILE"
+    ansible_vault_password: "env:MYPROJECT_VAULT_PASSWORD"
 ```
 
 How the chain fits together:

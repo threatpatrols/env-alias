@@ -2,7 +2,7 @@ release-date = "2026-08-09"
 
 # env-alias 0.7.0 — multi-file definitions, robustness and doc overhaul
 # This is a significant release over the previous 0.5.x series: it folds in the
-# earlier P0#8211;P3 hardening work plus the new multi-file feature.
+# earlier P0–P3 hardening work plus the new multi-file feature.
 
 [[entries]]
 id = "10ced5d5-e732-46fa-a0ac-c63adfb1acd4"
@@ -42,5 +42,5 @@ author = "ndejong@threatpatrols.com"
 [[entries]]
 id = "77c4d2b1-4f3a-5b7e-8c2d-9e5f0a1d3c21"
 type = "chore"
-description = "Release tooling: version bumping moved from unreadable inline Makefile Python to `scripts/bump_version.py` with `make bump-major` added; new release-metadata tests assert `importlib.metadata.version` matches `__version__` and that every user-facing model attribute has a documented and nav-listed definition-attributes page."
+description = "Release tooling: version bumping moved from unreadable inline Makefile Python to `hatch version` via `make bump-patch` / `make bump-minor` / `make bump-major`; new release-metadata tests assert `importlib.metadata.version` matches `__version__` and that every user-facing model attribute has a documented and nav-listed definition-attributes page."
 author = "ndejong@threatpatrols.com"

@@ -13,9 +13,10 @@ help:
 	@echo "Available commands:"
 	@echo "  make setup         - Create virtual environment and sync dependencies"
 	@echo "  make sync          - Sync python dependencies (dev environment)"
-	@echo "  make test          - Run fast offline unit and integration tests (skips network/slow)"
+	@echo "  make test          - Run unit and integration tests (skips network/slow)"
 	@echo "  make test-verbose  - Run tests verbosely (skips network/slow)"
 	@echo "  make test-all      - Run the full test suite incl. slow + network tests"
+	@echo "  make coverage      - Run tests with coverage report (htmlcov/)"
 	@echo "  make lint          - Run linting checks (ruff)"
 	@echo "  make format        - Format code (ruff)"
 	@echo "  make lint-fix      - Auto-fix linting and formatting issues"
@@ -35,45 +36,45 @@ setup:
 	@echo "Initializing isolated virtual environment..."
 	$(UV) venv --clear $(HOME)/.local/venvs/env-alias
 	@echo "Syncing dependencies..."
-	$(UV) sync --extra dev
+	$(UV) sync --group dev
 
 # Sync Python dependencies
 sync:
-	$(UV) sync --extra dev
+	$(UV) sync --group dev
 
 # Run tests
 test:
-	$(UV) run --extra dev pytest
+	$(UV) run --group dev pytest
 
 # Run tests verbosely
 test-verbose:
-	$(UV) run --extra dev pytest -v
+	$(UV) run --group dev pytest -v
 
 # Run the full test suite including slow and network tests
 test-all:
-	$(UV) run --extra dev pytest -m "not network or network"
+	$(UV) run --group dev pytest -m "not network or network"
 
 # Run tests with coverage
 coverage:
-	$(UV) run --extra dev pytest --cov=env_alias --cov-report=term-missing --cov-report=html
+	$(UV) run --group dev pytest --cov=env_alias --cov-report=term-missing --cov-report=html
 	@echo "Coverage report generated in htmlcov/"
 
 # Run linting checks
 lint:
-	$(UV) run --extra dev ruff check src tests
+	$(UV) run --group dev ruff check src tests
 
 # Format code
 format:
-	$(UV) run --extra dev ruff format src tests
+	$(UV) run --group dev ruff format src tests
 
 # Auto-fix linting and formatting issues
 lint-fix:
-	$(UV) run --extra dev ruff check --fix src tests
-	$(UV) run --extra dev ruff format src tests
+	$(UV) run --group dev ruff check --fix src tests
+	$(UV) run --group dev ruff format src tests
 
 # Run type checking
 typecheck:
-	$(UV) run --extra dev basedpyright
+	$(UV) run --group dev basedpyright
 
 # Build distribution packages
 build:
@@ -100,24 +101,23 @@ smoke-wheel: clean build
 	&& $$tmpdir/venv/bin/env-alias --generator $$tmpdir/def.yml \
 	&& echo "-> generator run OK"
 
-# Clean build/test/cache artifacts
+# Clean build/test/cache artifacts. Scoped finds never touch _dev/ or .git.
 clean:
 	rm -rf dist build *.egg-info src/*.egg-info
-	find . -type d -name __pycache__ -exec rm -rf {} +
-	find . -type d -name .pytest_cache -exec rm -rf {} +
-	find . -type d -name .ruff_cache -exec rm -rf {} +
+	find src tests docs -type d \( -name __pycache__ -o -name .pytest_cache -o -name .ruff_cache \) -prune -exec rm -rf {} +
+	rm -rf .pytest_cache .ruff_cache htmlcov .coverage
 
 # Bump the patch version number (e.g. 0.1.0 -> 0.1.1)
 bump-patch:
-	$(UV) run --extra dev hatch version patch
+	$(UV) run --group dev hatch version patch
 
 # Bump the minor version number (e.g. 0.1.0 -> 0.2.0)
 bump-minor:
-	$(UV) run --extra dev hatch version minor
+	$(UV) run --group dev hatch version minor
 
 # Bump the major version number (e.g. 0.1.0 -> 1.0.0)
 bump-major:
-	$(UV) run --extra dev hatch version major
+	$(UV) run --group dev hatch version major
 
 # UV configuration for documentation (isolated to prevent package dev conflict)
 DOCS_UV = UV_PROJECT_ENVIRONMENT=$(HOME)/.local/venvs/env-alias-docs UV_CACHE_DIR=/tmp/.uv-cache-env-alias-docs UV_LINK_MODE=copy uv

@@ -9,6 +9,9 @@ path = "src/env_alias/__init__.py"
 [tool.hatch.build.targets.wheel]
 packages = ["src/env_alias"]
 
+[tool.uv]
+cache-keys = [{ file = "pyproject.toml" }, { file = "src/env_alias/__init__.py" }]
+
 
 [project]
 name = "env-alias"
@@ -33,7 +36,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "pyyaml>=5.0",
+    "pyyaml>=6.0",
     "pydantic>=2.0.0",
 ]
 
@@ -46,7 +49,7 @@ Repository = "https://github.com/threatpatrols/env-alias.git"
 Documentation = "https://threatpatrols.github.io/env-alias/"
 "Bug Tracker" = "https://github.com/threatpatrols/env-alias/issues"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "basedpyright>=1.20.0",
     "ruff>=0.8.0",

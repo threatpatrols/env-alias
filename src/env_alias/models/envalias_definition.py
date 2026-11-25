@@ -2,9 +2,10 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from .constants import ValueTo
+from .constants import ParserType, ValueTo
 
 _EXCEPTION_END = "in an env-alias definition."
+_PARSER_CHOICES = ", ".join(p.value for p in ParserType)
 
 
 class EnvAliasDefinition(BaseModel):
@@ -49,7 +50,24 @@ class EnvAliasDefinition(BaseModel):
     @field_validator("parser", "value_to")
     @classmethod
     def lowercase(cls, v: str | None) -> str | None:
-        return v.lower() if v else v
+        if v and not v.startswith("env:"):
+            return v.lower()
+        return v
+
+    @field_validator("parser")
+    @classmethod
+    def valid_parser(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not v:
+            return None  # empty string behaves as unset (falsy parser was always ignored)
+        if v.startswith("env:"):
+            return v
+        try:
+            ParserType(v)
+        except ValueError as e:
+            raise ValueError(f"Invalid 'parser' value {v!r}: must be one of {_PARSER_CHOICES}") from e
+        return v
 
     @field_validator("value_to")
     @classmethod
@@ -79,7 +97,9 @@ class EnvAliasDefinition(BaseModel):
             raise ValueError(f"Must have one 'source', 'exec' or 'value' {_EXCEPTION_END}")
         if self.keepass_password and self.ansible_vault_password:
             raise ValueError(f"Cannot use both 'keepass_password' and 'ansible_vault_password' {_EXCEPTION_END}")
-        if self.ansible_vault_password_file and (self.exec_ or self.source or self.value or self.keepass_password):
+        if self.ansible_vault_password_file and (
+            self.exec_ or self.source or self.value is not None or self.keepass_password
+        ):
             raise ValueError(
                 f"Can only use 'ansible_vault_password_file' with 'ansible_vault_password' {_EXCEPTION_END}"
             )

@@ -63,9 +63,13 @@ def test_exit_code_failing_exec(tmp_path: Path, config_file) -> None:
     assert result.returncode != 0, f"expected non-zero exit, got {result.returncode}"
 
 
-# test_exit_code_unknown_parser deferred to P1-4: an unknown parser currently
-# silently succeeds with the raw value rather than raising, which is a
-# selector/parser edge case, not an exit-code defect.
+def test_exit_code_unknown_parser(tmp_path: Path, config_file) -> None:
+    data = tmp_path / "d.txt"
+    data.write_text("x\n")
+    config = config_file(f'    BAD_PARSER:\n        source: "{data}"\n        parser: toml\n        selector: 1\n')
+    result = _run_cli(config)
+    assert result.returncode != 0, f"expected non-zero exit, got {result.returncode}"
+    assert "export" not in result.stdout
 
 
 def test_all_or_nothing_on_failure(tmp_path: Path, config_file) -> None:

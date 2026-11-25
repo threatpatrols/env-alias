@@ -1,0 +1,9 @@
+release-date = "2026-08-21"
+
+# env-alias 0.8.0 — pattern-based definition matching and glob support
+
+[[entries]]
+id = "2e8a6c0d-5b4f-4e9a-8d1c-7f3b0a5e2c61"
+type = "feature"
+description = "Pattern-based definition matching: a glob such as `env-alias '~/.config/env-alias/env-*.yml'` emits one lazily-loaded alias per matched file. Patterns must end in `.yml`/`.yaml`, each matched filename must yield a valid alias name, non-file matches are skipped with a warning, and zero matches warn and exit 0."
+author = "ndejong@threatpatrols.com"

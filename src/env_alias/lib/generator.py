@@ -146,7 +146,15 @@ class EnvAliasGenerator:
 
         parser = sourced_content.content_type
         if definition.parser:
-            parser = ParserType(definition.parser) if isinstance(definition.parser, str) else definition.parser
+            try:
+                parser = (
+                    ParserType(definition.parser.lower()) if isinstance(definition.parser, str) else definition.parser
+                )
+            except ValueError as e:
+                allowed = ", ".join(p.value for p in ParserType)
+                raise EnvAliasException(
+                    f"Invalid 'parser' value {definition.parser!r}: must be one of {allowed}"
+                ) from e
 
         parser_key = _CONTENT_TO_PARSER.get(parser, ParserType.NONE) if isinstance(parser, ContentType) else parser
 
@@ -163,7 +171,8 @@ class EnvAliasGenerator:
         if parser_fn:
             return parser_fn(sourced_content.content, definition.selector)
 
-        if definition.selector and not str(definition.selector).isdigit():
+        selector_str = str(definition.selector) if definition.selector is not None else ""
+        if selector_str and not (selector_str.isascii() and selector_str.isdigit()):
             raise EnvAliasException(f"Selector for plaintext content must be number {definition.selector=}")
         elif definition.selector is None:
             definition.selector = "1"

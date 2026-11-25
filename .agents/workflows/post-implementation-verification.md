@@ -51,7 +51,7 @@ Verify the CLI works as expected by running it with a sample configuration file:
    UV_PROJECT_ENVIRONMENT=${HOME}/.local/venvs/env-alias \
    UV_CACHE_DIR=/tmp/.uv-cache-env-alias \
    UV_LINK_MODE=copy \
-   uv run --extra dev env-alias --generator tests/manual/local_yaml_01.yml
+   uv run --group dev env-alias --generator tests/manual/direct_01.yml
    ```
 2. Verify the output (the export lines) is printed to stdout.
 3. Ensure no errors are reported in the logs (stderr).

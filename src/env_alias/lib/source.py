@@ -98,7 +98,7 @@ class EnvAliasSource:
         logger.debug(f"EnvAliasContent.remote({url=})")
 
         def _validate_scheme(u: str) -> None:
-            if not u.startswith(("http://", "https://")):
+            if not u.lower().startswith(("http://", "https://")):
                 raise EnvAliasException(f"Rejected URL with disallowed scheme: {u!r}")
 
         _validate_scheme(url)
@@ -344,7 +344,7 @@ class SourceStrategy(NamedTuple):
 SOURCE_STRATEGIES: list[SourceStrategy] = [
     SourceStrategy(
         name="remote",
-        matches=lambda d: bool(d.source and d.source.startswith("http")),
+        matches=lambda d: bool(d.source and d.source.lower().startswith(("http://", "https://"))),
         fetch=lambda d: EnvAliasSource.remote(url=d.source),  # type: ignore[arg-type]
     ),
     SourceStrategy(

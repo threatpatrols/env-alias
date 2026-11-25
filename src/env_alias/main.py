@@ -16,16 +16,27 @@ logger = logger_get(name=LOGGER_NAME, loglevel=LOGGER_LEVEL)
 # in the emitted ``alias`` statement — the P0-2 injection hardening guarded
 # against ``$`\\`` characters, not ``-``.
 _ALIAS_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
-_DEF_FILE_RE = re.compile(r"^[A-Za-z0-9_-]+\.ya?ml$", re.IGNORECASE)
+# A definition file must carry a .yml/.yaml suffix; any basename is allowed so
+# dotted filenames (e.g. ``prod.env.yml``) work with an explicit alias name.
+# Alias names derived from a filename stem must still match _ALIAS_NAME_RE.
+_DEF_SUFFIX_RE = re.compile(r".+\.ya?ml$", re.IGNORECASE)
 _DEF_GLOB_RE = re.compile(r"^.*\.ya?ml$", re.IGNORECASE)
+
+
+def _has_yaml_suffix(path: str) -> bool:
+    """Return True if the basename of *path* ends with .yml/.yaml (any stem)."""
+    clean_path = path.rstrip("/\\")
+    basename = os.path.basename(clean_path)
+    return bool(_DEF_SUFFIX_RE.fullmatch(basename))
 
 
 def _resolve_definition_files(arg: str) -> list[str]:
     """Resolve a positional argument to one or more definition filenames.
 
     Globs (*, ?) are expanded; an empty match logs a warning and returns [].
-    Static filenames are validated syntactically (must match _DEF_FILE_RE)
-    without touching the filesystem.
+    Static filenames are validated syntactically (must end .yml/.yaml) without
+    touching the filesystem. All returned paths are absolute so the emitted
+    alias works from any working directory.
     """
     clean_path = arg.rstrip("/\\")
     basename = os.path.basename(clean_path)
@@ -39,23 +50,37 @@ def _resolve_definition_files(arg: str) -> list[str]:
         if not matches:
             logger.warning(f"No definition files matched glob pattern: {arg}")
             return []
+        files = []
         for f in matches:
-            fb = os.path.basename(f)
-            if not _DEF_FILE_RE.fullmatch(fb):
-                raise EnvAliasException(f"Matched definition filename {fb!r} must match ^[A-Za-z0-9_-]+\\.ya?ml$")
-        return matches
+            if not os.path.isfile(f):
+                logger.warning(f"Skipping non-file glob match: {f}")
+                continue
+            files.append(os.path.abspath(f))
+        return files
 
-    if not _DEF_FILE_RE.fullmatch(basename):
-        raise EnvAliasException(f"Definition filename {basename!r} must match ^[A-Za-z0-9_-]+\\.ya?ml$")
+    if not _has_yaml_suffix(arg):
+        raise EnvAliasException(f"Definition filename {basename!r} must end with .yml or .yaml")
 
-    return [arg]
+    return [os.path.abspath(os.path.expanduser(arg))]
+
+
+def _entries_from_files(files: list[str]) -> list[tuple[str, str]]:
+    """Build (alias_name, filename) entries, deriving names from file stems."""
+    entries: list[tuple[str, str]] = []
+    for f in files:
+        alias_name = os.path.splitext(os.path.basename(f))[0]
+        if not _ALIAS_NAME_RE.fullmatch(alias_name):
+            raise EnvAliasException(
+                f"Invalid alias name {alias_name!r}: must match ^[A-Za-z_][A-Za-z0-9_-]*$; "
+                "for filenames with dots, pass an explicit alias name: env-alias <alias> <definitions.yml>"
+            )
+        entries.append((alias_name, f))
+    return entries
 
 
 def _is_definition_arg(arg: str) -> bool:
     """Return True if arg looks like a definition file or glob rather than an alias name."""
-    clean_path = arg.rstrip("/\\")
-    basename = os.path.basename(clean_path)
-    return bool(glob.has_magic(arg) or _DEF_FILE_RE.fullmatch(basename) or basename.lower().endswith((".yml", ".yaml")))
+    return bool(glob.has_magic(arg) or _has_yaml_suffix(arg))
 
 
 def entrypoint() -> None:
@@ -95,15 +120,17 @@ def entrypoint() -> None:
             files = _resolve_definition_files(args.args[0])
             if not files:
                 return
-            entries = [(os.path.splitext(os.path.basename(f))[0], f) for f in files]
+            entries = _entries_from_files(files)
 
         elif len(args.args) == 2:
             arg0, arg1 = args.args[0], args.args[1]
             if _is_definition_arg(arg0):
                 # Multi-file mode: both args are definition files / patterns
                 for arg in args.args:
-                    for f in _resolve_definition_files(arg):
-                        entries.append((os.path.splitext(os.path.basename(f))[0], f))
+                    files = _resolve_definition_files(arg)
+                    if not files:
+                        continue
+                    entries.extend(_entries_from_files(files))
             else:
                 # First arg is explicit alias name
                 alias_name = arg0
@@ -126,8 +153,10 @@ def entrypoint() -> None:
                     f"An explicit alias name may be followed by only one definition file, got {len(trailing)}."
                 )
             for arg in args.args:
-                for f in _resolve_definition_files(arg):
-                    entries.append((os.path.splitext(os.path.basename(f))[0], f))
+                files = _resolve_definition_files(arg)
+                if not files:
+                    continue
+                entries.extend(_entries_from_files(files))
         else:
             usage_help(exit_code=0)
             return
@@ -135,11 +164,19 @@ def entrypoint() -> None:
         if not entries:
             return
 
-        # Validate every inferred/explicit alias name up front so that a single
-        # bad name never yields partial alias output on stdout.
-        for alias_name, _ in entries:
-            if not _ALIAS_NAME_RE.fullmatch(alias_name):
-                raise EnvAliasException(f"Invalid alias name {alias_name!r}: must match ^[A-Za-z_][A-Za-z0-9_-]*$")
+        # Drop exact duplicates (same name and same resolved path), then refuse
+        # a repeated name with different paths — that would silently overwrite
+        # the earlier alias in the user's shell. Both checks run before any
+        # stdout output so emission stays all-or-nothing.
+        entries = [e for i, e in enumerate(entries) if e not in entries[:i]]
+        seen: dict[str, str] = {}
+        for alias_name, filename in entries:
+            if alias_name in seen and seen[alias_name] != filename:
+                raise EnvAliasException(
+                    f"Duplicate alias name {alias_name!r} from {seen[alias_name]!r} and {filename!r}; "
+                    "use explicit alias names to disambiguate."
+                )
+            seen[alias_name] = filename
 
         # Emit one alias per entry. Each RHS runs the generator against that
         # entry's single definition file only, preserving per-alias lazy loading.
@@ -168,11 +205,14 @@ def entrypoint() -> None:
 
 
 def usage_help(exit_code: int | None = None) -> None:
-    print()
-    print(f"{__title__} v{__version__}")
-    print()
-    print("Usage: env-alias [<alias>] [--debug] <definitions.[yml|yaml]>")
-    print("Docs: https://threatpatrols.github.io/env-alias/")
-    print()
+    # stdout is shell code that the user's shell sources/evals — help text must
+    # never land there (its "Usage: ... [<alias>]" line even contains `<...>`
+    # redirection tokens that a sourcing shell would execute).
+    print(file=sys.stderr)
+    print(f"{__title__} v{__version__}", file=sys.stderr)
+    print(file=sys.stderr)
+    print("Usage: env-alias [<alias>] [--debug] <definitions.[yml|yaml]>", file=sys.stderr)
+    print("Docs: https://threatpatrols.github.io/env-alias/", file=sys.stderr)
+    print(file=sys.stderr)
     if exit_code is not None:
         exit(exit_code)

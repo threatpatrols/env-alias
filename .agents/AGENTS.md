@@ -16,9 +16,11 @@ databases, and Ansible Vault files, then narrowed with a *parser* (`ini`/`json`/
 a *selector* (dotted path or line number).
 
 **The single most important invariant: stdout is shell code that the user's interactive shell will
-execute.** Nothing may write to stdout except `EnvAliasGenerator.output_export()`. All logging,
-prompts, and diagnostics go to stderr. Anything that lands on stdout unquoted is a code-execution
-vector, not a formatting bug. (`value_to` targets stderr only — `<stdout>` was removed in 0.7.0.)
+execute.** In generator mode, only the buffered export lines built by `EnvAliasGenerator.build_export()`
+(`lib/generator.py`) may reach stdout; in alias mode, the emitted `alias ...` lines are the product.
+Usage/help and all logging go to stderr (`usage_help()` writes to stderr). Anything else landing on
+stdout unquoted is a code-execution vector, not a formatting bug. (`value_to` targets stderr only —
+`<stdout>` was removed in 0.7.0.)
 
 Secondary consequence: this tool handles plaintext secrets throughout. Treat every code path in
 `lib/source.py` as security-sensitive.
@@ -77,25 +79,29 @@ docs/                        # mkdocs site, separate uv project with its own pyp
 
 Control flow: `main.entrypoint` → `EnvAliasGenerator.generate()` → `EnvAliasDefinitions.load_definitions()`
 → per definition: `update_env_replacement_attributes` → `get_content_from_source` (source strategy) →
-`get_definition_value` (parser strategy) → `output_export`.
+`get_definition_value` (parser strategy) → `build_export`.
 
 ## Domain concepts you must understand before editing
 
 - **`SOURCE_STRATEGIES` / `PARSER_STRATEGIES`** (`lib/source.py`, `lib/selector.py`) — dispatch tables
   replacing former if/elif chains. `SOURCE_STRATEGIES` is an **ordered** list; the catch-all
   `bool(d.source)` predicate must remain after the more specific keepass/vault/stdin predicates.
-  Order is load-bearing and currently unenforced by tests. Do not reorder casually.
-- **`env:` indirection** — any definition attribute whose value starts with `env:` is replaced with
+  Order is load-bearing and is pinned by
+  `tests/test_source_strategy_resolution.py::test_strategy_order_is_documented`. Do not reorder casually.
+- **`env:` indirection** — the attributes `value`, `source`, `parser`, `selector`,
+  `keepass_password`, and `ansible_vault_password` accept `env:` prefixes; the value is replaced with
   the named environment variable, or with a value produced by an *earlier* definition in the same
-  file (`generator.get_replacement_env_value`). This is how a password is fetched once and reused.
-  It makes definition order significant.
-- **`name: null`** — marks a definition as internal-only (`_is_internal_only`): the value is computed
+  file (`generator.update_env_replacement_attributes`). `exec` is not covered. This is how a password
+  is fetched once and reused. It makes definition order significant.
+- **`name: null`** — marks a definition as internal-only (`is_internal_only`): the value is computed
   and made available to later definitions via `env:`, but is never exported. Used for intermediate
   secrets. A definition named the *string* `"none"`/`"None"` is a common user mistake and triggers a
   warning.
 - **`selector: null` vs absent selector** — `definitions.py` maps YAML `null` to the string sentinel
-  `"none"`, which suppresses output entirely; an absent selector means "default" (line 1 for
-  plaintext). These are different behaviours encoded in a string value. `selector: none` spelled
+  `"none"`; on normal parsed-source paths it suppresses output, but it does NOT suppress direct
+  `value`, `<stdin>`, `<getpass>`, KeePass, or `parser: none` results (see
+  `docs/docs/definition-attributes/selector.md` — use `name: null` when a definition must never
+  export). An absent selector means "default" (line 1 for plaintext). `selector: none` spelled
   literally is legacy syntax and is pinned by a test.
 - **`value_to: <stderr>`** — echoes the value to stderr (in addition to, or instead of when combined
   with `name: null`, exporting it). Only `<stderr>` is valid; `<stdout>` was removed in 0.7.0.
@@ -115,7 +121,7 @@ Control flow: `main.entrypoint` → `EnvAliasGenerator.generate()` → `EnvAlias
 - Version lives only in `src/env_alias/__init__.py`; `pyproject.toml` reads it dynamically. Bump via
   `make bump-patch` / `make bump-minor` / `make bump-major`.
 - Tests assert on the exact export format including its leading space
-  (`' export "NAME"="value"'`) — the space suppresses shell history recording. Do not "clean it up".
+  (`' export "NAME"=\'value\''`) — the space suppresses shell history recording. Do not "clean it up".
 
 ## Current state (read before assuming anything)
 
@@ -126,13 +132,17 @@ chains, typing on PEP 604. The deleted `pdm`/`slap`/`mypy`/`setuptools` toolchai
 Consequences to be aware of:
 
 - `.github/workflows/project-tests.yml` is the single CI test workflow; it runs `make lint`,
-  `make typecheck`, and `make test-all` across Python 3.10–3.14. `.github/workflows/build-tests.yml`
-  was deleted. `docs/docs/development.md` documents the current `uv`/`Makefile` workflow.
-- `make lint`, `make typecheck`, and `make test` are quick checks. `make test-all` runs the full suite
-  (including slow and network tests) and enforces the 80% coverage floor (`--cov-fail-under=80`) —
+  `make typecheck`, `make test-all`, `make build`, and `make smoke-wheel` across Python 3.10–3.14.
+  `.github/workflows/build-tests.yml` was deleted. `docs/docs/development.md` documents the current
+  `uv`/`Makefile` workflow.
+- PyPI publishing (`.github/workflows/publish.yml`) is gated on the test suite: it reuses
+  project-tests.yml via `workflow_call` and publishes only after the suite passes.
+- `--cov-fail-under=80` lives in `pyproject.toml` pytest `addopts`, so the coverage floor gates both
+  `make test` and `make test-all`. `make test-all` additionally runs the slow and network tests —
   use it before any release.
 - `basedpyright` still has several `report* = "none"` overrides, so treat typecheck pass as a signal,
   not a guarantee of clean types.
-- Version `0.7.1` lives only in `src/env_alias/__init__.py`, read dynamically by `pyproject.toml`; the
-  release tag must match it (`v0.7.1`). The current working tree has an uncommitted documentation
-  changeset (docs pages, workflows, badge examples) awaiting commit.
+- Version `0.8.1` lives only in `src/env_alias/__init__.py`, read dynamically by `pyproject.toml`;
+  the release tag must match it (`v0.8.1`).
+- Dev dependencies live in `[dependency-groups] dev` (PEP 735), not `[project.optional-dependencies]`;
+  the `env-alias[dev]` extra no longer exists and Makefile targets use `--group dev`.

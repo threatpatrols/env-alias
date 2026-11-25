@@ -34,7 +34,7 @@ make lint         # ruff lint check (src + tests)
 make format       # ruff format (src + tests)
 make lint-fix     # ruff check --fix + format, apply fixes
 make typecheck    # basedpyright static type checking (src + tests)
-make test         # run the fast offline unit and integration tests (skips network/slow)
+make test         # run unit and integration tests (skips network/slow)
 make test-verbose # run tests verbosely
 make test-all     # run the full suite incl. slow + network tests
 make coverage     # run tests with a coverage report (html + terminal)
@@ -75,8 +75,10 @@ The version is single-sourced from `src/env_alias/__init__.py` (`__version__`), 
 2. Bump `__version__` in `src/env_alias/__init__.py` with `make bump-major` / `make bump-minor` /
    `make bump-patch` (wraps `hatch version`).
 3. Commit, then push a `vX.Y.Z` tag. The tag-triggered PyPI workflow verifies that the tag matches
-   `__version__`, builds the distributions, creates a GitHub release, and publishes to PyPI via trusted
-   publishing. It does not rerun the quality gates, so run them before tagging.
+   `__version__`, waits for the reusable test-suite gate (`project-tests.yml`, which runs lint,
+   typecheck, the full test suite, build, and wheel smoke-test), then builds the distributions,
+   creates a GitHub release, and publishes to PyPI via trusted publishing. Run the quality gates
+   locally before tagging to catch failures early.
 
 ## Where things live
 

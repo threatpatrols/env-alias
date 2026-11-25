@@ -37,7 +37,7 @@ def _run(*argv: str):
 
 def test_usage_help_no_exit(capsys):
     usage_help()
-    out = capsys.readouterr().out
+    out = capsys.readouterr().err
     assert "Usage:" in out
     assert "env-alias" in out.lower()
 
@@ -60,7 +60,7 @@ def test_usage_help_exit_1(capsys):
 def test_entrypoint_no_args(capsys):
     code = _run()
     assert code is None
-    out = capsys.readouterr().out
+    out = capsys.readouterr().err
     assert "Usage:" in out
 
 
@@ -81,7 +81,7 @@ def test_entrypoint_version(capsys):
 def test_entrypoint_debug_no_args(capsys):
     code = _run("--debug")
     assert code is None
-    out = capsys.readouterr().out
+    out = capsys.readouterr().err
     assert "Usage:" in out
 
 
@@ -91,7 +91,7 @@ def test_entrypoint_debug_no_args(capsys):
 def test_entrypoint_generator_no_file(capsys):
     code = _run("--generator")
     assert code is None
-    out = capsys.readouterr().out
+    out = capsys.readouterr().err
     assert "Usage:" in out
 
 
@@ -209,8 +209,8 @@ def test_entrypoint_rhs_special_chars(tmp_path, config_file, capsys):
     assert code is None
     out = capsys.readouterr().out
     assert "alias" in out.lower()
-    # single quote should be escaped
-    assert "'\\''" in out or "test" in out
+    # single quote should be escaped: ' -> '\'' then doubled for the alias body
+    assert r"test'\\''dir" in out
 
 
 # --- entrypoint() — glob expansion and validation -------------------------

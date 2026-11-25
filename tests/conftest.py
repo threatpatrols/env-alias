@@ -2,11 +2,16 @@ import functools
 import http.server
 import json
 import os
+import tempfile
 import threading
 from pathlib import Path
 
 import pytest
 import yaml
+
+# ansible-vault writes scratch dirs under ~/.ansible — keep that out of $HOME
+# (and out of read-only sandboxes) by pointing DEFAULT_LOCAL_TMP at /tmp.
+os.environ.setdefault("ANSIBLE_LOCAL_TEMP", os.path.join(tempfile.gettempdir(), "ansible-local"))
 
 
 @pytest.fixture

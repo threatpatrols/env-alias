@@ -17,10 +17,10 @@ jobs:
     name: "verify tag == __version__"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -36,24 +36,30 @@ jobs:
             exit 1
           fi
 
+  tests:
+    name: "test suite (reusable)"
+    uses: ./.github/workflows/project-tests.yml
+    permissions:
+      contents: read
+
   build-and-publish:
     name: "build + GitHub Release + PyPI"
-    needs: tag-alignment
+    needs: [tag-alignment, tests]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
       id-token: write
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 

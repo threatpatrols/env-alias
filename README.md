@@ -87,10 +87,11 @@ source <(env-alias \
   ~/.config/env-alias/env-proj-c.yml)
 ```
 
-You can also pass a file pattern (glob):
+You can also pass a file pattern (glob). **Quote it** so the shell hands the pattern to env-alias,
+which expands it itself (with a warning and exit 0 when nothing matches):
 
 ```shell
-source <(env-alias ~/.config/env-alias/env-*.yml)
+source <(env-alias '~/.config/env-alias/env-*.yml')
 ```
 
 One process at shell startup defines `env-proj-a`, `env-proj-b` and `env-proj-c` as independent lazily-loaded

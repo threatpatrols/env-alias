@@ -1,0 +1,42 @@
+release-date = "2026-08-11"
+
+# env-alias 0.7.1 — toolchain migration, hardening, and model refinement
+# A large refactor release: pdm/slap-cli removed in favour of hatchling + uv +
+# Makefile, security hardening of the keepass/exec/export paths, and pydantic
+# v2 + PEP 604 typing throughout.
+
+[[entries]]
+id = "7f3d2a10-9c4b-4e8f-b6a1-2d5c8e0f4b71"
+type = "refactor"
+description = "Build/toolchain migration: `pdm`/`slap-cli` removed; the project now uses `hatchling` + `uv` + `Makefile` with isolated venv/cache paths, `hatch version` bump targets, and a wheel smoke-test target."
+author = "ndejong@threatpatrols.com"
+
+[[entries]]
+id = "9a1e4c6d-2b8f-4d3a-9e7c-1f0b5a2d8e42"
+type = "fix"
+description = "Shell-quoting and injection fixes in generated output: export values are POSIX single-quoted, and the alias RHS is escaped against `$`, backticks, and quotes before embedding in the double-quoted `alias` statement."
+author = "ndejong@threatpatrols.com"
+
+[[entries]]
+id = "4c8b2e6f-1d9a-4f7c-8b3e-0a5d2f9c6e83"
+type = "fix"
+description = "KeePass source hardened against shell injection: `keepassxc-cli` is invoked as an argv list with the database password delivered via stdin instead of a shell command line."
+author = "ndejong@threatpatrols.com"
+
+[[entries]]
+id = "d2f6a8c4-3e1b-4a9d-8c5f-7b0e3a1d6f94"
+type = "feature"
+description = "Strategy tables: `SOURCE_STRATEGIES` and `PARSER_STRATEGIES` replace if/elif chains, backed by typed constants; pydantic v2 models with `extra=\"forbid\"` validate definitions at load time; PEP 604 typing throughout."
+author = "ndejong@threatpatrols.com"
+
+[[entries]]
+id = "6b0d4e2a-8f3c-4d1e-9a7b-5c2f8e4b0d15"
+type = "fix"
+description = "`value_to: <stdout>` removed (stderr only); a null `env-alias:` root raises a clean error instead of an unhandled traceback; multi-file alias invocation added."
+author = "ndejong@threatpatrols.com"
+
+[[entries]]
+id = "e9c5b1d7-4a2f-4e6c-8d0b-3f7a1c9e5b26"
+type = "chore"
+description = "Test and CI hardening: pytest-cov with an 80% coverage floor, marker registration (network/slow/requires_keepassxc/requires_ansible_vault), local HTTP test server, and a `project-tests` matrix across Python 3.10-3.14 plus a tag-driven publish workflow."
+author = "ndejong@threatpatrols.com"
