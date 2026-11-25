@@ -1,0 +1,9 @@
+release-date = "2026-11-26"
+
+# env-alias 0.10.2 — full uv.lock and docs/uv.lock dependency refresh
+
+[[entries]]
+id = "d4f6b8a0-2c4e-4d6f-9b8a-0e1c3f5a7b22"
+type = "chore"
+description = "Refreshed all locked dependencies in `uv.lock` and `docs/uv.lock` via `uv lock --upgrade`."
+author = "ndejong@threatpatrols.com"
