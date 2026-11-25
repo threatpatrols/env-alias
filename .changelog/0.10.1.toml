@@ -1,0 +1,9 @@
+release-date = "2026-11-26"
+
+# env-alias 0.10.1 — dependency lockfile updates
+
+[[entries]]
+id = "c2e4a6f8-1b3d-4c5e-8a7f-9d0b2e4c6a11"
+type = "chore"
+description = "Updated `uv.lock` (`uv`, `httpx2`, `virtualenv`, `urllib3`) and `docs/uv.lock` (`pymdown-extensions`, `certifi`, `mkdocs-material`) to supersede Dependabot PRs #3-#9."
+author = "ndejong@threatpatrols.com"

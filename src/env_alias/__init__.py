@@ -5,7 +5,7 @@
 from os import getenv
 
 __title__ = "Env Alias"
-__version__ = "0.10.0"
+__version__ = "0.10.1"
 
 LOGGER_LEVEL = "info"
 if getenv("ENVALIAS_DEBUG", "").lower().startswith(("true", "yes", "enable", "on")):

@@ -142,7 +142,7 @@ Consequences to be aware of:
   use it before any release.
 - `basedpyright` still has several `report* = "none"` overrides, so treat typecheck pass as a signal,
   not a guarantee of clean types.
-- Version `0.10.0` lives only in `src/env_alias/__init__.py`, read dynamically by `pyproject.toml`;
-  the release tag must match it (`v0.10.0`).
+- Version `0.10.1` lives only in `src/env_alias/__init__.py`, read dynamically by `pyproject.toml`;
+  the release tag must match it (`v0.10.1`).
 - Dev dependencies live in `[dependency-groups] dev` (PEP 735), not `[project.optional-dependencies]`;
   the `env-alias[dev]` extra no longer exists and Makefile targets use `--group dev`.
