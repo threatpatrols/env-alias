@@ -2,14 +2,17 @@
 
 The `selector` attribute chooses one value from parsed content.
 
-JSON and YAML selectors support equivalent dot, slash, and bracket forms, for example:
+JSON, YAML, and TOML selectors support equivalent dot, slash, and bracket forms (including trailing
+bracket indices like `items[0]` and numeric string dictionary keys), for example:
 
 * `service.ports.0.number`
 * `/service/ports/0/number`
 * `service.ports[0].number`
 
-INI selectors use exactly `<section>.<option>`. All structured parsers require a selector, and JSON
-or YAML selections must resolve to a scalar (`string`, number, or boolean), not a mapping or list.
+INI selectors use exactly `<section>.<option>`. Dotenv (`parser: dotenv`) selectors match the exact
+variable key name (e.g. `DATABASE_URL`). All structured parsers require a selector, and JSON, YAML,
+or TOML selections must resolve to a scalar (`string`, number, boolean, or ISO-formatted date/time),
+not a mapping or list.
 
 Plaintext selectors are one-based line numbers. If a plaintext selector is omitted, Env Alias returns
 line 1.
@@ -41,6 +44,18 @@ env-alias:
         source: "~/.aws/credentials"
         parser: ini
         selector: "default.aws_access_key_id"
+```
+
+
+### Example - dotenv key
+
+Select a key by exact name from a `.env` file.
+
+```yaml
+env-alias:
+    DATABASE_URL:
+        source: ".env.local"
+        selector: "DATABASE_URL"
 ```
 
 

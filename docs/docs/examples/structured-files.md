@@ -1,7 +1,7 @@
 # Structured Local Files
 
-Load values out of common local structured files — INI, JSON, YAML — using a parser and selector,
-without writing any parsing code.
+Load values out of common local structured files — INI, JSON, YAML, TOML, and dotenv (`.env`) —
+using a parser and selector, without writing any parsing code.
 
 ## Example
 
@@ -20,6 +20,14 @@ env-alias:
 
   DOCKER_TAG:
     value: 'env:BUILD_NUMBER'
+
+  APP_VERSION:
+    source: "~/projects/myproject/pyproject.toml"
+    selector: "project.version"
+
+  DATABASE_URL:
+    source: "~/projects/myproject/.env.local"
+    selector: "DATABASE_URL"
 ```
 
 Walkthrough:
@@ -29,3 +37,5 @@ Walkthrough:
    does not depend on where the alias is invoked.
 2. `DOCKER_TAG` — reuses that resolved value via `value: 'env:BUILD_NUMBER'` instead of duplicating
    it.
+3. `APP_VERSION` — `.toml` is inferred automatically and `project.version` selects the nested key.
+4. `DATABASE_URL` — `.env.local` is inferred as `dotenv` and `DATABASE_URL` selects the exact key.

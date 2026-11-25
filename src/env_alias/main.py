@@ -8,6 +8,7 @@ from pathlib import Path
 from . import LOGGER_LEVEL, LOGGER_NAME, __title__, __version__
 from .exceptions import EnvAliasException
 from .lib.logger import logger_get, logger_setlevel
+from .models.constants import ShellType
 
 logger = logger_get(name=LOGGER_NAME, loglevel=LOGGER_LEVEL)
 
@@ -83,29 +84,111 @@ def _is_definition_arg(arg: str) -> bool:
     return bool(glob.has_magic(arg) or _has_yaml_suffix(arg))
 
 
+def _fish_single_quote(s: str) -> str:
+    """Fish shell single-quote *s* unconditionally."""
+    return "'" + s.replace("\\", "\\\\").replace("'", "\\'") + "'"
+
+
+def _expand_file_args(args: list[str]) -> list[Path]:
+    """Expand file paths and globs for --check / --list modes."""
+    paths: list[Path] = []
+    for arg in args:
+        if glob.has_magic(arg):
+            paths.extend(Path(f) for f in _resolve_definition_files(arg))
+        else:
+            paths.append(Path(os.path.expanduser(arg)))
+    return paths
+
+
 def entrypoint() -> None:
     parser = argparse.ArgumentParser(
         description=f"{__title__} v{__version__}",
-        epilog="Usage: env-alias [<alias>] [--debug] <definitions.[yml|yaml]>",
+        epilog="Usage: env-alias [<alias>] [--debug] [--shell bash|zsh|fish] <definitions.[yml|yaml]>",
         add_help=False,
     )
     parser.add_argument("--version", action="version", version=f"{__title__} v{__version__}")
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--generator", action="store_true")
+    parser.add_argument("--run", action="store_true")
+    parser.add_argument("--check", action="store_true")
+    parser.add_argument("--list", action="store_true", dest="list_defs")
+    parser.add_argument("--shell", default=ShellType.BASH.value)
     parser.add_argument("args", nargs="*")
 
     try:
-        args = parser.parse_args()
+        raw_argv = sys.argv[1:]
+        run_command: list[str] | None = None
+        if "--" in raw_argv and "--run" in raw_argv[: raw_argv.index("--")]:
+            sep_idx = raw_argv.index("--")
+            cli_argv = raw_argv[:sep_idx]
+            run_command = raw_argv[sep_idx + 1 :]
+        else:
+            cli_argv = raw_argv
+
+        args = parser.parse_args(cli_argv)
 
         if args.debug:
             logger_setlevel(LOGGER_NAME, "debug")
+
+        try:
+            shell = ShellType(str(args.shell).lower())
+        except ValueError as e:
+            allowed = ", ".join(s.value for s in ShellType)
+            raise EnvAliasException(f"Invalid '--shell' value {args.shell!r}: must be one of {allowed}") from e
+
+        active_modes = sum(bool(flag) for flag in (args.generator, args.run, args.check, args.list_defs))
+        if active_modes > 1:
+            raise EnvAliasException("Only one of --generator, --run, --check, or --list may be specified.")
 
         if args.generator:
             if not args.args:
                 usage_help(exit_code=0)
             from env_alias.lib.generator import EnvAliasGenerator
 
-            EnvAliasGenerator(config_file=[Path(f) for f in args.args]).generate()
+            EnvAliasGenerator(config_file=[Path(f) for f in args.args], shell=shell).generate()
+            return
+
+        if args.run:
+            if not args.args and run_command is None:
+                usage_help(exit_code=0)
+                return
+            if run_command is None:
+                raise EnvAliasException("Usage: env-alias --run <definitions.yml>... -- <command> [args...]")
+            if not args.args:
+                raise EnvAliasException("At least one definitions file is required before '--'.")
+            if not run_command:
+                raise EnvAliasException("A command is required after '--'.")
+            from env_alias.lib.generator import EnvAliasGenerator
+
+            rc = EnvAliasGenerator(config_file=[Path(f) for f in args.args], shell=shell).run(run_command)
+            if rc != 0:
+                exit(rc)
+            return
+
+        if args.check:
+            if not args.args:
+                usage_help(exit_code=0)
+                return
+            from env_alias.lib.generator import EnvAliasGenerator
+
+            files = _expand_file_args(args.args)
+            if not files:
+                return
+            ok = EnvAliasGenerator(config_file=files).check()
+            if not ok:
+                exit(1)
+            return
+
+        if args.list_defs:
+            if not args.args:
+                usage_help(exit_code=0)
+                return
+            from env_alias.lib.generator import EnvAliasGenerator
+
+            files = _expand_file_args(args.args)
+            if not files:
+                return
+            EnvAliasGenerator(config_file=files).list_definitions()
             return
 
         if not args.args:
@@ -183,14 +266,23 @@ def entrypoint() -> None:
         generator_cmd = "env-alias"
         if args.debug:
             generator_cmd += " --debug"
-        for alias_name, filename in entries:
-            quoted_file = "'" + filename.replace("'", "'\\''") + "'"
-            rhs = f"source <({generator_cmd} --generator {quoted_file})"
+        if shell == ShellType.FISH:
+            generator_cmd += " --shell fish"
+            for alias_name, filename in entries:
+                fish_file = _fish_single_quote(filename)
+                inner_cmd = f"{generator_cmd} --generator {fish_file} | source"
+                alias_command = f"alias {alias_name} {_fish_single_quote(inner_cmd)}"
+                logger.debug(alias_command)
+                print(alias_command)
+        else:
+            for alias_name, filename in entries:
+                quoted_file = "'" + filename.replace("'", "'\\''") + "'"
+                rhs = f"source <({generator_cmd} --generator {quoted_file})"
 
-            rhs_dq = rhs.replace("\\", "\\\\").replace('"', '\\"').replace("$", "\\$").replace("`", "\\`")
-            alias_command = f'alias "{alias_name}"="{rhs_dq}"'
-            logger.debug(alias_command)
-            print(alias_command)
+                rhs_dq = rhs.replace("\\", "\\\\").replace('"', '\\"').replace("$", "\\$").replace("`", "\\`")
+                alias_command = f'alias "{alias_name}"="{rhs_dq}"'
+                logger.debug(alias_command)
+                print(alias_command)
 
     except EnvAliasException:
         print("Exiting", file=sys.stderr)
@@ -211,7 +303,12 @@ def usage_help(exit_code: int | None = None) -> None:
     print(file=sys.stderr)
     print(f"{__title__} v{__version__}", file=sys.stderr)
     print(file=sys.stderr)
-    print("Usage: env-alias [<alias>] [--debug] <definitions.[yml|yaml]>", file=sys.stderr)
+    print("Usage:", file=sys.stderr)
+    print("  env-alias [<alias>] [--debug] [--shell bash|zsh|fish] <definitions.[yml|yaml]>...", file=sys.stderr)
+    print("  env-alias --generator [--debug] [--shell bash|zsh|fish] <definitions.[yml|yaml]>...", file=sys.stderr)
+    print("  env-alias --run [--debug] <definitions.[yml|yaml]>... -- <command> [args...]", file=sys.stderr)
+    print("  env-alias --check <definitions.[yml|yaml]>...", file=sys.stderr)
+    print("  env-alias --list <definitions.[yml|yaml]>...", file=sys.stderr)
     print("Docs: https://threatpatrols.github.io/env-alias/", file=sys.stderr)
     print(file=sys.stderr)
     if exit_code is not None:

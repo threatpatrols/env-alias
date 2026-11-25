@@ -6,13 +6,18 @@
 If you run it as a plain command the aliases are only printed, not installed. Use either form:
 
 ```shell
+# Bash / Zsh
 source <(env-alias env-awesome.yml)
 # or
 eval "$(env-alias env-awesome.yml)"
+
+# Fish
+env-alias --shell fish env-awesome.yml | source
 ```
 
-Remember: the `source <( ... )` (or `eval "$( ... )"`) wrapper is **required** — a child process cannot define
-aliases or set env vars in your current shell.
+Remember: the `source <( ... )` / `eval "$( ... )"` (or `| source` in Fish) wrapper is **required** —
+a child process cannot define aliases or set env vars in your current shell. If you only need the
+variables for one command, use `env-alias --run env-awesome.yml -- <command>` instead.
 
 ## "Empty or malformed definitions root 'env-alias'"
 
@@ -33,7 +38,7 @@ Install them (e.g. `apt install keepassxc ansible`) and ensure they're on `PATH`
 
 ## Remote (`http` / `https`) sources fail
 
-* The URL scheme must be `http://` or `https://`. Other schemes are rejected outright (`Rejected URL with disallowed scheme`).
+* The URL scheme must be `http://` or `https://`. Other schemes — as well as redirects to disallowed schemes or `https://` → `http://` downgrades — are rejected outright.
 * Responses are limited to a **10 MB** maximum.
 * The HTTP (GET) timeout is **30 seconds**.
 * A non-UTF-8 body may fail to decode.
@@ -62,9 +67,17 @@ see [Security](security.md).
 
 ## A structured source says a selector is required
 
-`json`, `yaml`, and `ini` content must use a `selector`. JSON/YAML selectors use dot, slash, or bracket
-paths; INI selectors use `<section>.<option>`. If you need the complete raw file instead, set
-`parser: none` and omit the selector.
+`json`, `yaml`, `toml`, `dotenv`, and `ini` content must use a `selector`. JSON/YAML/TOML selectors
+use dot, slash, or bracket paths; dotenv selectors use the exact key name; INI selectors use
+`<section>.<option>`. If you need the complete raw file instead, set `parser: none` and omit the
+selector.
+
+## Checking a definition file before running it
+
+Run `env-alias --check <file.yml>` to catch schema errors, invalid variable names, forward `env:`
+references, missing local source files, or missing `keepassxc-cli`/`ansible-vault` binaries without
+prompting or executing `exec:` commands. Run `env-alias --list <file.yml>` to inspect which variables
+a file exports.
 
 ## `value_to: <stdout>` fails with a "removed" error
 

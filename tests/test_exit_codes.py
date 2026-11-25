@@ -66,7 +66,7 @@ def test_exit_code_failing_exec(tmp_path: Path, config_file) -> None:
 def test_exit_code_unknown_parser(tmp_path: Path, config_file) -> None:
     data = tmp_path / "d.txt"
     data.write_text("x\n")
-    config = config_file(f'    BAD_PARSER:\n        source: "{data}"\n        parser: toml\n        selector: 1\n')
+    config = config_file(f'    BAD_PARSER:\n        source: "{data}"\n        parser: xml\n        selector: 1\n')
     result = _run_cli(config)
     assert result.returncode != 0, f"expected non-zero exit, got {result.returncode}"
     assert "export" not in result.stdout

@@ -70,7 +70,7 @@ After sourcing the output, both the file path and the decrypted value are availa
 ```console
 $ eval "$(env-alias --generator myproject.yml)"
 $ echo "$ANSIBLE_VAULT_PASSWORD_FILE"
-/tmp/rlykdcpulv9z
+/tmp/env-alias-1000/rlykdcpulv9z
 $ echo "$MYPROJECT_DATABASE_PASSWORD"
 <value decrypted from the vault>
 ```

@@ -223,7 +223,7 @@ def test_local_file_with_http_prefix_loads_locally(tmp_path, monkeypatch, config
 def test_invalid_parser_rejected_at_load(tmp_path, config_file):
     data = tmp_path / "d.txt"
     data.write_text("x\n")
-    f = config_file(f'    P_VAR:\n        source: "{data}"\n        parser: toml\n        selector: 1\n')
+    f = config_file(f'    P_VAR:\n        source: "{data}"\n        parser: xml\n        selector: 1\n')
     with pytest.raises(EnvAliasException):
         EnvAliasGenerator(config_file=f).generate()
 
@@ -238,7 +238,7 @@ def test_parser_env_indirection_preserves_case_and_validates(tmp_path, monkeypat
     EnvAliasGenerator(config_file=f).generate()
     assert " export \"P_OK\"='v'" in capsys.readouterr().out
 
-    monkeypatch.setenv("MY_PARSER", "toml")
+    monkeypatch.setenv("MY_PARSER", "xml")
     f_bad = config_file(f'    P_BAD:\n        source: "{data}"\n        parser: "env:MY_PARSER"\n        selector: k\n')
     with pytest.raises(EnvAliasException, match="Invalid 'parser' value"):
         EnvAliasGenerator(config_file=f_bad).generate()

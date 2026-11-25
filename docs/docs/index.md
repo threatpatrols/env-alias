@@ -9,15 +9,18 @@ Env Alias is an environment variable swiss-army-knife that lets you load complex
 variables from a variety of sources **only when you need them**, reducing the risk of working with sensitive values.
 
 It loads values from local files, http(s) URLs, shell `exec` output, Keepass databases, Ansible Vault files — in
-**JSON**, **YAML**, **Plaintext** and **INI** formats — and exports them into your shell as a one-shot sourced
-command. Values are fetched lazily, on demand, when you invoke the alias, so secrets are never loaded until you
-actually use them.
+**JSON**, **YAML**, **TOML**, **dotenv (`.env`)**, **Plaintext** and **INI** formats — and exports them into your
+shell as a one-shot sourced command (or injects them ephemerally into a single command via `--run`). Values are
+fetched lazily, on demand, when you invoke the alias, so secrets are never loaded until you actually use them.
 
 ## Features
 
 * **Data sources:** local files, `http(s)` URLs, `<getpass>`, `<stdin>`, KeePass, Ansible Vault, and stdout from `exec`.
-* **Content formats:** JSON, YAML, INI, and plaintext.
-* **Selectors:** dot, slash, and bracket paths for JSON/YAML; `<section>.<option>` for INI; line numbers for plaintext.
+* **Content formats:** JSON, YAML, TOML, dotenv (`.env`), INI, and plaintext.
+* **Selectors:** dot, slash, and bracket paths for JSON/YAML/TOML; exact key names for dotenv; `<section>.<option>` for INI; line numbers for plaintext.
+* **Shell targets:** Bash/Zsh (default) and Fish (`--shell fish`).
+* **Ephemeral execution:** `--run <file.yml>... -- <command>` injects exported variables into a single child command without exporting them to your interactive shell.
+* **Static validation & inspection:** `--check <file.yml>...` validates definitions without fetching secrets or running `exec`; `--list <file.yml>...` inspects variable names and source types.
 * **Ansible Vault Password File helper:** generates the executable password-file arrangement Ansible expects.
 * **`env:NAME` references:** reuse one whole value from the process environment or an earlier definition.
 * **Internal-only values:** `name: null` suppresses normal export to the calling shell while retaining the value for later definitions in the same run.
@@ -67,8 +70,8 @@ Most definitions use exactly one of `source`, `exec`, or `value`. For ordinary f
 `exec` content, generation follows three steps:
 
 1. **Acquire content** from a local file, HTTP(S) URL, or command stdout.
-2. **Parse content** as JSON, YAML, INI, or plaintext.
-3. **Select one value** with a JSON/YAML path, an INI `<section>.<option>`, or a plaintext line number.
+2. **Parse content** as JSON, YAML, TOML, dotenv (`.env`), INI, or plaintext.
+3. **Select one value** with a JSON/YAML/TOML path, a dotenv key name, an INI `<section>.<option>`, or a plaintext line number.
 
 Direct `value`, `<stdin>`, and `<getpass>` definitions return raw values. KeePass uses its selector as
 an entry/attribute lookup, while Ansible Vault and password-file support are special cases.
@@ -90,6 +93,19 @@ source <(env-alias \
   ~/.config/env-alias/env-proj-a.yml \
   ~/.config/env-alias/env-proj-b.yml \
   ~/.config/env-alias/env-proj-c.yml)
+
+# Or match with a quoted glob pattern
+source <(env-alias '~/.config/env-alias/env-*.yml')
+
+# Fish shell (~/.config/fish/config.fish)
+env-alias --shell fish '~/.config/env-alias/env-*.yml' | source
+
+# Run a single command with ephemeral secrets (nothing exported to your shell)
+env-alias --run ~/projects/awesome/env-awesome-vars.yml -- terraform plan
+
+# Validate or inspect definitions without fetching secrets or running exec
+env-alias --check '~/.config/env-alias/env-*.yml'
+env-alias --list ~/projects/awesome/env-awesome-vars.yml
 ```
 
 The multi-file form is recommended when you have many definitions: it collapses many `env-alias` process startups

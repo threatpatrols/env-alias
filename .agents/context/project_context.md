@@ -12,7 +12,7 @@ working-tree state. This file covers the stack, the *why* behind the design, and
 | Concern | Choice | Notes |
 |---------|--------|-------|
 | Language | Python `>=3.10` | PEP 604 unions available. |
-| Runtime deps | `pyyaml`, `pydantic>=2` | Deliberately minimal — this is a shell-startup-path tool, so import time matters. `requests` is a **dev/test** dep only; runtime HTTP uses stdlib `urllib.request`. |
+| Runtime deps | `pyyaml`, `pydantic>=2`, `tomli` (Py 3.10 only) | Deliberately minimal — this is a shell-startup-path tool, so import time matters. `tomli` is installed only on Python 3.10 (3.11+ uses stdlib `tomllib`). `requests` is a **dev/test** dep only; runtime HTTP uses stdlib `urllib.request`. |
 | Build backend | `hatchling` | `src/` layout (`[tool.hatch.build.targets.wheel] packages = ["src/env_alias"]`); version kept in `env_alias.__version__` and read dynamically via `[tool.hatch.version] path`. Publish install uses `uv`/PyPI, not `setuptools`. |
 | Env / deps | `uv` | Isolated environment, never a repo-local `.venv`. See `../rules/environment.md`. |
 | Dev dependencies | `[dependency-groups] dev` (PEP 735) | Makefile targets use `--group dev`; the `env-alias[dev]` extra was removed. |

@@ -25,7 +25,8 @@ instruct env-alias to execute arbitrary shell commands.
    process from using the value during the run.
 
 3. **Ansible Vault password-file helper** — `ansible_vault_password_file: true` creates or reuses an
-   executable script in the system temporary directory with `0o700` permissions. Its path is derived
+   executable script inside a user-private `0700` subdirectory of the system temporary directory
+   (e.g. `/tmp/env-alias-<uid>/...`) with `0o700` permissions and ownership checks. Its path is derived
    from the password, it is not removed automatically, and a generated environment variable containing
    the password is exported so the script can supply it to Ansible.
 
@@ -46,6 +47,10 @@ instruct env-alias to execute arbitrary shell commands.
 * **Prefer ordinary local or HTTP(S) `source` values over `exec`** when you only need data. They do
   not run a user-supplied command.
 * **Set restrictive file permissions** on definition files containing sensitive commands.
+* **Prefer `--run` for high-privilege commands** (`env-alias --run prod.yml -- terraform plan`) so
+  secrets are injected only into the child command and never exported to your interactive shell.
+* **Use `--check` / `--list` to inspect unfamiliar files** before running them — neither executes
+  `exec:` commands nor fetches secrets.
 * **Use `name: null`** for sensitive intermediate values to suppress a normal export to the calling
   shell.
 * **Do not use `value_to: <stderr>` for secrets.** STDERR may be captured by terminals, CI, or logs.

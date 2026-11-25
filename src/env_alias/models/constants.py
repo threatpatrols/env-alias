@@ -24,6 +24,8 @@ class ParserType(str, Enum):
     YML = "yml"
     JSON = "json"
     INI = "ini"
+    TOML = "toml"
+    DOTENV = "dotenv"
 
 
 class ContentType(str, Enum):
@@ -33,6 +35,16 @@ class ContentType(str, Enum):
     INI = "ini"
     JSON = "json"
     YAML = "yaml"
+    TOML = "toml"
+    DOTENV = "dotenv"
+
+
+class ShellType(str, Enum):
+    """Supported target shells for emitted alias and export statements."""
+
+    BASH = "bash"
+    ZSH = "zsh"
+    FISH = "fish"
 
 
 class SelectorType(str, Enum):

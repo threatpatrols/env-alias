@@ -9,15 +9,18 @@ Env Alias is an environment variable swiss-army-knife that lets you load complex
 variables from a variety of sources **only when you need them**, reducing the risk of working with sensitive values.
 
 It loads values from local files, http(s) URLs, shell `exec` output, Keepass databases, Ansible Vault files — in
-**JSON**, **YAML**, **Plaintext** and **INI** formats — and exports them into your shell as a one-shot sourced
-command. Values are fetched lazily, on demand, when you invoke the alias, so secrets are never loaded until you
-actually use them.
+**JSON**, **YAML**, **TOML**, **dotenv (`.env`)**, **Plaintext** and **INI** formats — and exports them into your
+shell as a one-shot sourced command (or injects them ephemerally into a single command via `--run`). Values are
+fetched lazily, on demand, when you invoke the alias, so secrets are never loaded until you actually use them.
 
 ## Features
 
 * **Data sources:** local files, `http(s)` URLs, `<getpass>`, `<stdin>`, KeePass, Ansible Vault, and stdout from `exec`.
-* **Content formats:** JSON, YAML, INI, and plaintext.
-* **Selectors:** dot, slash, and bracket paths for JSON/YAML; `<section>.<option>` for INI; line numbers for plaintext.
+* **Content formats:** JSON, YAML, TOML, dotenv (`.env`), INI, and plaintext.
+* **Selectors:** dot, slash, and bracket paths for JSON/YAML/TOML; exact key names for dotenv; `<section>.<option>` for INI; line numbers for plaintext.
+* **Shell targets:** Bash/Zsh (default) and Fish (`--shell fish`).
+* **Ephemeral execution:** `--run <file.yml>... -- <command>` injects exported vars into a single command without polluting your interactive shell.
+* **Static validation & inspection:** `--check <file.yml>...` validates definitions without fetching secrets or running `exec`; `--list <file.yml>...` inspects variables and source types.
 * **Ansible Vault Password File helper:** generates the executable password-file arrangement Ansible expects.
 * **`env:NAME` references:** reuse one whole value from the process environment or an earlier definition.
 * **Internal-only values:** `name: null` suppresses normal export to the calling shell while retaining the value for later definitions in the same run.
@@ -101,6 +104,31 @@ aliases. This is the recommended pattern when you have many definitions.
 
 Name your aliases with a common prefix such as `env-` so they group together for shell **tab-completion**.
 
+### Fish shell
+
+Pass `--shell fish` in `~/.config/fish/config.fish` to emit Fish `alias` and `set -gx` syntax:
+
+```fish
+env-alias --shell fish '~/.config/env-alias/env-*.yml' | source
+```
+
+### Ephemeral single-command execution (`--run`)
+
+Inject resolved variables into a single child command without exporting them into your persistent shell (internal `name: null` values are never passed to the child):
+
+```shell
+env-alias --run ~/.config/env-alias/env-prod.yml -- terraform plan -out=tfplan
+```
+
+### Validate and inspect definitions (`--check` / `--list`)
+
+Validate YAML, schemas, and `env:` ordering — or inspect defined variables and source types — without prompting, fetching secrets, or executing `exec:` commands:
+
+```shell
+env-alias --check '~/.config/env-alias/env-*.yml'
+env-alias --list ~/.config/env-alias/env-prod.yml
+```
+
 ## Example definition
 
 ```yaml
@@ -147,7 +175,7 @@ Each definition uses a small set of attributes to describe how its value is gene
 | Attribute | Purpose |
 |-----------|---------|
 | `source` | Read a local file or HTTP(S) URL; `<getpass>`, `<stdin>`, and `env:VAR` are special sources |
-| `parser` | Explicitly use `yaml`/`yml`, `json`, `ini`, or `none`; omitted content types are inferred |
+| `parser` | Explicitly use `yaml`/`yml`, `json`, `toml`, `dotenv`, `ini`, or `none`; omitted content types are inferred |
 | `selector` | Select a scalar from structured content, or a one-based line number from plaintext |
 | `name` | Override the exported env-var name; `null` suppresses export to the calling shell |
 | `value` | Set a direct value (or a whole-value `env:VAR` reference); bypasses parsing and selection |

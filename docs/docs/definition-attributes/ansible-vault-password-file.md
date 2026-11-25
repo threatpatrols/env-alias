@@ -15,8 +15,9 @@ exports two things:
   read it.
 
 The script path and generated variable name are derived deterministically from the password. Env Alias
-writes the script to the system temporary directory with owner-only permissions, reuses it for the
-same password, and does not remove it automatically.
+writes the script inside a user-private `0700` subdirectory of the system temporary directory (e.g.
+`/tmp/env-alias-<uid>/...`) with owner-only permissions, reuses it for the same password, and does not
+remove it automatically.
 
 ## Example
 

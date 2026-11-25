@@ -51,6 +51,8 @@ _CONTENT_TYPE_EXTENSIONS: dict[str, ContentType] = {
     ".json": ContentType.JSON,
     ".yml": ContentType.YAML,
     ".yaml": ContentType.YAML,
+    ".toml": ContentType.TOML,
+    ".env": ContentType.DOTENV,
 }
 
 
@@ -64,11 +66,17 @@ def _sniff_content_type(name: str, mime: str | None = None) -> ContentType:
             return ContentType.JSON
         if "yaml" in mime_lower:
             return ContentType.YAML
+        if "toml" in mime_lower:
+            return ContentType.TOML
 
     name_lower = name.lower()
     for ext, content_type in _CONTENT_TYPE_EXTENSIONS.items():
         if name_lower.endswith(ext):
             return content_type
+
+    basename = os.path.basename(name_lower)
+    if basename == ".env" or basename.startswith(".env."):
+        return ContentType.DOTENV
 
     return ContentType.TEXT
 

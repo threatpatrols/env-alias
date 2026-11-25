@@ -46,7 +46,7 @@ commands work without `--ask-vault-pass`:
 ```console
 $ eval "$(env-alias --generator myproject.yml)"
 $ echo "$ANSIBLE_VAULT_PASSWORD_FILE"      # the executable script Env Alias generated
-/tmp/rlykdcpulv9z
+/tmp/env-alias-1000/rlykdcpulv9z
 $ ansible-playbook -i inventory/production site.yml
 ```
 

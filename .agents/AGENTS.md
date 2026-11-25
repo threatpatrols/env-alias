@@ -12,8 +12,8 @@ alias "myenv"="source <(env-alias --generator ~/myenv.yml)"
 ```
 
 Values are sourced from local files, HTTP URLs, shell commands, stdin/getpass prompts, KeePass
-databases, and Ansible Vault files, then narrowed with a *parser* (`ini`/`json`/`yaml`/plaintext) and
-a *selector* (dotted path or line number).
+databases, and Ansible Vault files, then narrowed with a *parser* (`ini`/`json`/`yaml`/`toml`/`dotenv`/plaintext)
+and a *selector* (dotted path, key name, or line number).
 
 **The single most important invariant: stdout is shell code that the user's interactive shell will
 execute.** In generator mode, only the buffered export lines built by `EnvAliasGenerator.build_export()`
@@ -142,7 +142,7 @@ Consequences to be aware of:
   use it before any release.
 - `basedpyright` still has several `report* = "none"` overrides, so treat typecheck pass as a signal,
   not a guarantee of clean types.
-- Version `0.8.2` lives only in `src/env_alias/__init__.py`, read dynamically by `pyproject.toml`;
-  the release tag must match it (`v0.8.2`).
+- Version `0.9.0` lives only in `src/env_alias/__init__.py`, read dynamically by `pyproject.toml`;
+  the release tag must match it (`v0.9.0`).
 - Dev dependencies live in `[dependency-groups] dev` (PEP 735), not `[project.optional-dependencies]`;
   the `env-alias[dev]` extra no longer exists and Makefile targets use `--group dev`.
